@@ -10,8 +10,8 @@ const Sidebar = ({ isCollapsed, setIsCollapsed }) => {
     { name: "Patients", icon: <Users size={24} />, path: "/patients" },
     { name: "Appointments", icon: <CalendarDays size={24} />, path: "/appointments" },
     // New menu items
-    { name: "Doctor", icon: <Stethoscope size={24} />, path: "/Doctor" }, // placeholder
-    { name: "Staff", icon: <User size={24} />, path: "/staff" }, // placeholder
+    { name: "Doctor", icon: <Stethoscope size={24} />, path: "/Doctors" }, // placeholder
+    { name: "Staff", icon: <User size={24} />, path: "/StaffShifts" }, // placeholder
   ];
 
   return (

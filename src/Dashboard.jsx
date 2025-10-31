@@ -166,7 +166,7 @@ const Dashboard = () => {
           <div className="bg-white border border-gray-100 rounded-2xl shadow-sm hover:shadow-md p-6">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold">Doctors Available Today</h3>
-              <button onClick={() => navigate("/Doctor")} className="text-sm text-blue-600 font-medium hover:underline flex items-center gap-1">
+              <button onClick={() => navigate("/Doctors")} className="text-sm text-blue-600 font-medium hover:underline flex items-center gap-1">
                 View All <ChevronRight className="w-4 h-4" />
               </button>
             </div>
@@ -202,7 +202,7 @@ const Dashboard = () => {
           <div className="bg-white border border-gray-100 rounded-2xl shadow-sm hover:shadow-md p-6">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold">Nurses On Shift</h3>
-              <button onClick={() => navigate("/staff")} className="text-sm text-blue-600 font-medium hover:underline flex items-center gap-1">
+              <button onClick={() => navigate("/StaffShifts")} className="text-sm text-blue-600 font-medium hover:underline flex items-center gap-1">
                 View All <ChevronRight className="w-4 h-4" />
               </button>
             </div>
