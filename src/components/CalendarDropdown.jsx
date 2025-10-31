@@ -6,14 +6,13 @@ const CalendarDropdown = ({ selectedDate, onDateChange }) => {
   const [open, setOpen] = useState(false);
   const dropdownRef = useRef(null);
 
-  // Convert selectedDate string ("YYYY-MM-DD") to local Date object
   const parsedDate =
     selectedDate instanceof Date
       ? selectedDate
       : selectedDate
       ? (() => {
           const [y, m, d] = selectedDate.split("-").map(Number);
-          return new Date(y, m - 1, d); // local date
+          return new Date(y, m - 1, d); 
         })()
       : null;
 

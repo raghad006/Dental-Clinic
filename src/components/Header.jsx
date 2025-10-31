@@ -1,9 +1,11 @@
 import React, { useState, useRef, useEffect } from "react";
 import { Bell, Search, LogOut } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
-const Header = ({ isCollapsed }) => {
+const Header = ({ isCollapsed, onLogout }) => {
   const [showMenu, setShowMenu] = useState(false);
   const menuRef = useRef(null);
+  const navigate = useNavigate();
 
   // Close dropdown if clicked outside
   useEffect(() => {
@@ -15,6 +17,12 @@ const Header = ({ isCollapsed }) => {
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
+
+  const handleLogout = () => {
+    setShowMenu(false);         // Close dropdown
+    if (onLogout) onLogout();   // Reset admin login state in App
+    navigate("/admin");         // Redirect to admin login
+  };
 
   return (
     <header
@@ -30,7 +38,6 @@ const Header = ({ isCollapsed }) => {
           Smile Care Center Dashboard
         </h1>
 
-        {/* Search Bar (UI only) */}
         <div className="flex items-center bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 w-96 shadow-sm focus-within:border-blue-400">
           <Search className="w-5 h-5 text-gray-400 mr-2" />
           <input
@@ -68,7 +75,7 @@ const Header = ({ isCollapsed }) => {
           {showMenu && (
             <div className="absolute right-0 mt-2 w-40 bg-white border border-gray-200 rounded-lg shadow-lg">
               <button
-                onClick={() => alert("Logging out...")}
+                onClick={handleLogout}
                 className="w-full flex items-center gap-2 px-4 py-2 text-gray-700 hover:bg-gray-100"
               >
                 <LogOut className="w-4 h-4" />
