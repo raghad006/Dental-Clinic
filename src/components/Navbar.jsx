@@ -14,7 +14,6 @@ export default function Navbar(){
         <div className="flex items-center gap-4">
           <Link to="/book" className="text-gray-700 hover:text-blue-600">Book</Link>
           <Link to="/loyalty" className="text-gray-700 hover:text-blue-600">Loyalty</Link>
-          <Link to="/receptionist" className="text-gray-700 hover:text-blue-600">Receptionist</Link>
           <Link to="/admin" className="text-gray-700 hover:text-blue-600">Admin</Link>
           {user ? (
             <Link to="/profile" className="px-3 py-1 bg-blue-600 text-white rounded">{user.name}</Link>

@@ -1,8 +1,8 @@
 import React, { useState } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 
-// Public pages
 import Home from "./pages/Home";
+import Login from "./pages/Login";
 import Book from "./pages/Book";
 import Choose from "./pages/Choose";
 import Confirm from "./pages/Confirm";
@@ -10,11 +10,10 @@ import Payment from "./pages/Payment";
 import Success from "./pages/Success";
 import Loyalty from "./pages/Loyalty";
 import Profile from "./pages/Profile";
-import Receptionist from "./pages/Receptionist";
 import AdminLogin from "./pages/AdminLogin";
 import Navbar from "./components/Navbar";
 
-// Dashboard layout
+
 import Sidebar from "./components/Sidebar";
 import Header from "./components/Header";
 import Dashboard from "./Dashboard";
@@ -48,7 +47,6 @@ export default function App() {
       <div>
         <Sidebar isCollapsed={isCollapsed} setIsCollapsed={setIsCollapsed} />
         <div className={`transition-all duration-300 ${isCollapsed ? "ml-20" : "ml-64"}`}>
-          {/* Pass onLogout to Header so the logout button works */}
           <Header isCollapsed={isCollapsed} onLogout={handleAdminLogout} />
           <main className="p-6 mt-20 bg-gray-100 min-h-screen">
             <Routes>
@@ -74,6 +72,7 @@ export default function App() {
       <main className="max-w-6xl mx-auto p-6">
         <Routes>
           <Route path="/" element={<Home />} />
+          <Route path="/login" element={<Login />} />  {/* <-- patient login route */}
           <Route path="/book" element={<Book />} />
           <Route path="/choose" element={<Choose />} />
           <Route path="/confirm" element={<Confirm />} />
@@ -81,7 +80,6 @@ export default function App() {
           <Route path="/success" element={<Success />} />
           <Route path="/loyalty" element={<Loyalty />} />
           <Route path="/profile" element={<Profile />} />
-          <Route path="/receptionist" element={<Receptionist />} />
           <Route path="/admin" element={<AdminLogin onLogin={handleAdminLogin} />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
