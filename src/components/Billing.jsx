@@ -2,11 +2,11 @@ import React, { useState } from "react";
 import CreateInvoice from "./CreateInvoice";
 
 const initialInvoices = [
-  { id: "#INV-00876", name: "Liam Johnson", amount: "$150.00", method: "Credit Card", status: "Paid" },
-  { id: "#INV-00875", name: "Olivia Smith", amount: "$75.50", method: "Credit Card", status: "Pending" },
-  { id: "#INV-00874", name: "Noah Williams", amount: "$320.00", method: "PayPal", status: "Paid" },
-  { id: "#INV-00873", name: "Emma Brown", amount: "$200.00", method: "Credit Card", status: "Overdue" },
-  { id: "#INV-00872", name: "James Taylor", amount: "$55.00", method: "Cash", status: "Pending" },
+  { id: "#INV-00876", name: "Liam Johnson", amount: "150.00 EGP", method: "Paymob Egypt", status: "Paid" },
+  { id: "#INV-00875", name: "Olivia Smith", amount: "75.50 EGP", method: "Credit Card", status: "Pending" },
+  { id: "#INV-00874", name: "Noah Williams", amount: "320.00 EGP", method: "InstaPay", status: "Paid" },
+  { id: "#INV-00873", name: "Emma Brown", amount: "200.00 EGP", method: "Credit Card", status: "Canceled" },
+  { id: "#INV-00872", name: "James Taylor", amount: "55.00 EGP", method: "Cash", status: "Pending" },
 ];
 
 const Billing = () => {
@@ -16,7 +16,7 @@ const Billing = () => {
   const statusColor = {
     Paid: "bg-green-100 text-green-600",
     Pending: "bg-yellow-100 text-yellow-600",
-    Overdue: "bg-red-100 text-red-600",
+    Canceled: "bg-red-100 text-red-600",
   };
 
   const addInvoice = (newInvoice) => {

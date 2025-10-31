@@ -1,5 +1,5 @@
 import React from "react";
-import { Users, LayoutDashboard, CalendarDays, Menu, X, User,Stethoscope } from "lucide-react";
+import { Users, LayoutDashboard, CalendarDays, Menu, X, User,Stethoscope ,Receipt} from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 
 const Sidebar = ({ isCollapsed, setIsCollapsed }) => {
@@ -12,6 +12,8 @@ const Sidebar = ({ isCollapsed, setIsCollapsed }) => {
     // New menu items
     { name: "Doctor", icon: <Stethoscope size={24} />, path: "/Doctors" }, // placeholder
     { name: "Staff", icon: <User size={24} />, path: "/StaffShifts" }, // placeholder
+    { name: "Billing", icon: <Receipt size={24} />, path: "/Billing" }, // placeholder
+
   ];
 
   return (

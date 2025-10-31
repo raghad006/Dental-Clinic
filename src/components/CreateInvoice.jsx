@@ -17,17 +17,20 @@ const CreateInvoice = ({ onBack, onSave }) => {
   const handleSubmit = (e) => {
     e.preventDefault();
 
-    // Format the amount with $
-    const formattedAmount = form.amount.startsWith("$")
-      ? form.amount
-      : `$${form.amount}`;
+    // ✅ Format amount to end with EGP, avoid duplicates, avoid errors
+    const formattedAmount =
+      form.amount && typeof form.amount === "string"
+        ? form.amount.endsWith("EGP")
+          ? form.amount
+          : `${form.amount}EGP`
+        : `${form.amount || 0}EGP`;
 
     const newInvoice = {
       ...form,
       amount: formattedAmount,
     };
 
-    onSave(newInvoice); // Send new invoice to Billing
+    onSave(newInvoice);
   };
 
   return (
@@ -37,6 +40,7 @@ const CreateInvoice = ({ onBack, onSave }) => {
       </h2>
 
       <form onSubmit={handleSubmit} className="space-y-4">
+        
         <div>
           <label className="block mb-1 font-semibold">Invoice ID</label>
           <input
@@ -87,9 +91,9 @@ const CreateInvoice = ({ onBack, onSave }) => {
           >
             <option value="">Select Method</option>
             <option value="Credit Card">Credit Card</option>
-            <option value="PayPal">PayPal</option>
+            <option value="InstaPay">InstaPay</option>
             <option value="Cash">Cash</option>
-            <option value="Insurance">Insurance</option>
+            <option value="Paymob Egypt">Insurance</option>
           </select>
         </div>
 
@@ -105,7 +109,7 @@ const CreateInvoice = ({ onBack, onSave }) => {
             <option value="">Select Status</option>
             <option value="Paid">Paid</option>
             <option value="Pending">Pending</option>
-            <option value="Overdue">Overdue</option>
+            <option value="Canceled">Canceled</option>
           </select>
         </div>
 
@@ -117,6 +121,7 @@ const CreateInvoice = ({ onBack, onSave }) => {
           >
             ← Back
           </button>
+
           <button
             type="submit"
             className="bg-blue-600 text-white px-6 py-2 rounded-md hover:bg-blue-700"
@@ -124,6 +129,7 @@ const CreateInvoice = ({ onBack, onSave }) => {
             Save Invoice
           </button>
         </div>
+
       </form>
     </div>
   );
