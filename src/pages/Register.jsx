@@ -2,27 +2,26 @@ import React, { useState, useContext } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { UserContext } from "../context/UserContext";
 
-export default function Login() {
-  const { login } = useContext(UserContext);
+export default function Register() {
+  const { register } = useContext(UserContext); // ✅ use register, not login
+  const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const navigate = useNavigate();
 
-  const handleLogin = (e) => {
+  const handleRegister = (e) => {
     e.preventDefault();
 
-    if (email && password) {
-      const role = login({ email, password }); // returns "admin", "patient", or false
+    if (name && email && password) {
+      const userData = { name, email, password };
+      const success = register(userData); // ✅ call the register function
 
-      if (role === "admin") {
-        navigate("/admin"); // ✅ correct route to existing admin dashboard flow
-      } else if (role === "patient") {
-        navigate("/"); // ✅ go to patient homepage
-      } else {
-        alert("Account not found. Please register first.");
+      if (success) {
+        alert("Account created successfully!");
+        navigate("/patient");
       }
     } else {
-      alert("Please enter both email and password");
+      alert("Please fill in all fields");
     }
   };
 
@@ -30,11 +29,19 @@ export default function Login() {
     <div className="flex justify-center items-center min-h-screen bg-gradient-to-r from-blue-500 to-blue-700 text-white">
       <div className="bg-white text-gray-800 p-8 rounded-2xl shadow-lg w-96">
         <h2 className="text-2xl font-bold mb-4 text-center text-blue-700">
-          Login to Your Account
+          Create a New Account
         </h2>
 
-        <form onSubmit={handleLogin}>
-          {/* Email */}
+        <form onSubmit={handleRegister}>
+          <label className="block mb-2 text-sm font-semibold">Full Name</label>
+          <input
+            type="text"
+            placeholder="Enter your full name"
+            className="w-full mb-4 p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+          />
+
           <label className="block mb-2 text-sm font-semibold">Email</label>
           <input
             type="email"
@@ -44,7 +51,6 @@ export default function Login() {
             onChange={(e) => setEmail(e.target.value)}
           />
 
-          {/* Password */}
           <label className="block mb-2 text-sm font-semibold">Password</label>
           <input
             type="password"
@@ -54,24 +60,18 @@ export default function Login() {
             onChange={(e) => setPassword(e.target.value)}
           />
 
-          <div className="flex justify-between items-center text-sm mb-4">
-            <a href="#" className="text-blue-600 hover:underline">
-              Forgot Password?
-            </a>
-          </div>
-
           <button
             type="submit"
             className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 rounded-lg transition duration-200"
           >
-            Login
+            Register
           </button>
         </form>
 
         <p className="text-sm text-center mt-4 text-gray-600">
-          Don’t have an account?{" "}
-          <Link to="/register" className="text-blue-600 hover:underline">
-            Register here
+          Already have an account?{" "}
+          <Link to="/login" className="text-blue-600 hover:underline">
+            Login here
           </Link>
         </p>
       </div>

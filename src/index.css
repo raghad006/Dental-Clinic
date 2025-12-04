@@ -1,3 +1,87 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* --- Calendar Custom Styling --- */
+.react-calendar {
+  width: 100%;
+  border: none;
+  background: transparent;
+  font-family: 'Inter', sans-serif;
+}
+
+.react-calendar__navigation {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.react-calendar__navigation button {
+  color: #2563eb;
+  font-weight: 600;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 1rem;
+  transition: color 0.2s;
+}
+
+.react-calendar__navigation button:hover {
+  color: #1e40af;
+}
+
+/* Weekdays header */
+.react-calendar__month-view__weekdays {
+  text-transform: uppercase;
+  font-size: 0.75rem;
+  color: #6b7280;
+  text-align: center;
+  font-weight: 500;
+}
+
+/* Day tiles */
+.react-calendar__tile {
+  border-radius: 8px;
+  padding: 10px 0;
+  font-size: 0.9rem;
+  color: #333;
+  text-align: center;
+  transition: background 0.2s, color 0.2s;
+}
+
+.react-calendar__tile:hover {
+  background: #e0ebff;
+}
+
+/* Selected day */
+.react-calendar__tile--active {
+  background: #2563eb !important;
+  color: white !important;
+  font-weight: 600;
+}
+
+/* Today’s date highlight */
+.react-calendar__tile--now {
+  background: #e0ebff !important;
+  color: #2563eb !important;
+  font-weight: 600;
+}
+
+/* Days from previous/next month (dimmed) */
+.react-calendar__month-view__days__day--neighboringMonth {
+  color: #9ca3af;
+}
+
+/* Disabled days (e.g., past dates) */
+.react-calendar__tile:disabled {
+  color: #d1d5db;
+  background: #f9fafb;
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+/* Month view layout padding */
+.react-calendar__month-view {
+  padding: 0 4px;
+}

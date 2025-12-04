@@ -20,6 +20,7 @@ const Patient = () => {
   const [expandedIndex, setExpandedIndex] = useState(null);
   const [expandedUpcoming, setExpandedUpcoming] = useState(null);
   const [isEditing, setIsEditing] = useState(false);
+  const [modalImage, setModalImage] = useState(null);
 
   const [patient, setPatient] = useState({
     name: "Mohamed Mohamed",
@@ -35,15 +36,18 @@ const Patient = () => {
   const genderDropdownRef = useRef(null);
   const [showGenderMenu, setShowGenderMenu] = useState(false);
 
-  // Close dropdown if clicked outside
   useEffect(() => {
     const handleClickOutside = (e) => {
-      if (genderDropdownRef.current && !genderDropdownRef.current.contains(e.target)) {
+      if (
+        genderDropdownRef.current &&
+        !genderDropdownRef.current.contains(e.target)
+      ) {
         setShowGenderMenu(false);
       }
     };
     document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
+    return () =>
+      document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
   const upcomingAppointments = [
@@ -88,6 +92,7 @@ const Patient = () => {
       doctor: "Dr. Eleanor Vance",
       treatment: "Annual Check-up",
       notes: "Patient in good health. Recommended next check-up in 6 months.",
+      image: "/Prescription.jpg",
     },
     {
       date: "2024-12-22",
@@ -95,12 +100,14 @@ const Patient = () => {
       treatment: "Toothache (Filling)",
       notes:
         "Cavity filled successfully. Advised to avoid sugary food for a week.",
+      image: "/Prescription.jpg",
     },
     {
       date: "2024-02-05",
       doctor: "Dr. Benjamin Carter",
       treatment: "Initial Consultation",
       notes: "Initial assessment complete. Follow-up scheduled after 3 months.",
+      image: "/Prescription.jpg",
     },
   ];
 
@@ -128,6 +135,9 @@ const Patient = () => {
     setEditedPatient({ ...patient });
     setIsEditing(false);
   };
+
+  const openModal = (img) => setModalImage(img);
+  const closeModal = () => setModalImage(null);
 
   return (
     <div className="min-h-screen bg-gray-50 p-6">
@@ -277,6 +287,7 @@ const Patient = () => {
             </button>
           )}
         </div>
+
         {/* -------------------- Upcoming + Loyalty Points -------------------- */}
         <div className="grid md:grid-cols-3 gap-6">
           {/* Upcoming Appointments */}
@@ -414,9 +425,23 @@ const Patient = () => {
                         <p className="text-sm mb-1">
                           <strong>Doctor:</strong> {appt.doctor}
                         </p>
-                        <p className="text-sm whitespace-pre-line">
+                        <p className="text-sm whitespace-pre-line mb-2">
                           <strong>Notes:</strong> {appt.notes}
                         </p>
+
+                        <img
+                          src={appt.image}
+                          alt="Prescription"
+                          className="w-28 h-auto rounded-lg border border-gray-200 cursor-pointer hover:shadow-lg transition"
+                          onClick={() => openModal(appt.image)}
+                        />
+                        <a
+                          href={appt.image}
+                          download
+                          className="mt-2 inline-block text-blue-600 font-medium hover:underline"
+                        >
+                          Download Prescription
+                        </a>
                       </td>
                     </tr>
                   )}
@@ -425,6 +450,27 @@ const Patient = () => {
             </tbody>
           </table>
         </div>
+
+        {modalImage && (
+          <div
+            className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50"
+            onClick={closeModal}
+          >
+            <div className="relative bg-white rounded-lg p-4 max-w-5xl w-full max-h-[90vh] overflow-auto">
+              <button
+                className="absolute top-2 right-2 text-gray-600 hover:text-gray-900 z-50"
+                onClick={closeModal}
+              >
+                <X className="w-6 h-6" />
+              </button>
+              <img
+                src={modalImage}
+                alt="Prescription"
+                className="w-15 h-auto cursor-zoom-in object-contain"
+              />
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

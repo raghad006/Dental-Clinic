@@ -4,45 +4,55 @@ import { useApp } from '../state/AppContext'
 
 export default function Home() {
   const { doctors } = useApp()
+
   return (
     <div className="space-y-12">
 
-      {/* Hero Section */}
-      <section className="flex flex-col items-center text-center bg-gradient-to-r from-blue-500 to-blue-700 text-white py-20 rounded-xl mb-8">
-        <h1 className="text-4xl font-bold">Dental Clinic Management</h1>
-        <p className="mt-3 max-w-xl">
-          Book appointments, manage patients, and track rewards — all in one place.
-        </p>
-        <Link
-          to="/book"
-          className="mt-6 px-6 py-3 bg-white text-blue-700 rounded-full font-semibold shadow hover:shadow-lg transition"
-        >
-          Book Appointment
-        </Link>
+      {/* Hero Section with Full Logo Background */}
+      <section
+        className="relative flex flex-col items-center justify-end text-center text-white py-20 rounded-xl mb-8 overflow-hidden"
+        style={{
+          backgroundImage: 'url("/Logo1.png")', // ✅ full background image
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+          backgroundRepeat: 'no-repeat',
+          height: '60vh',
+        }}
+      >
+        {/* Optional overlay for contrast */}
+        <div className="absolute inset-0 bg-blue-900 bg-opacity-40"></div>
+
+        {/* Book Button only */}
+        <div className="relative z-10 pb-10">
+          <Link
+            to="/book"
+            className="px-8 py-3 bg-white text-blue-700 rounded-full font-semibold shadow-lg hover:shadow-xl transition text-lg"
+          >
+            Book Appointment
+          </Link>
+        </div>
       </section>
 
-      {/* Featured Doctors */}
+      {/* Featured Doctors — view only */}
       <section>
-        <h2 className="text-2xl font-semibold mb-6 text-center">Featured Doctors</h2>
+        <h2 className="text-2xl font-semibold mb-6 text-center">Our Doctors</h2>
         <div className="grid md:grid-cols-3 gap-6">
-          {doctors.map(d => (
-            <div key={d.id} className="p-4 bg-white rounded-lg shadow hover:shadow-lg transition flex flex-col items-center text-center">
+          {doctors.map((d) => (
+            <div
+              key={d.id}
+              className="p-6 bg-white rounded-lg shadow hover:shadow-lg transition flex flex-col items-center text-center"
+            >
               <img
                 src="/user.png"
                 alt={d.name}
-                className="w-20 h-20 rounded-full object-cover mb-3 border-2 border-blue-500"
+                className="w-24 h-24 rounded-full object-cover mb-3 border-2 border-blue-500"
               />
               <div className="font-semibold text-lg">{d.name}</div>
               <div className="text-sm text-gray-500">
                 {d.specialty} • {d.years} yrs
               </div>
-              <div className="mt-4">
-                <Link
-                  to="/book"
-                  className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition"
-                >
-                  Book with {d.name.split(' ')[1]}
-                </Link>
+              <div className="text-sm text-gray-400 mt-1">
+                {d.location}
               </div>
             </div>
           ))}

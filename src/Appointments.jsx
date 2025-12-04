@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 import CalendarDropdown from "./components/CalendarDropdown";
 import PaginatedTable from "./components/PaginatedTable";
-
+import AddAppointmentModal from "./components/AddAppointmentModal";
 const initialAppointments = [
   { date: "2025-10-30", time: "08:30 AM", patient: "Youssef Hassan", doctor: "Dr. Ava Chen", status: "Awaiting" },
   { date: "2025-10-30", time: "09:00 AM", patient: "Olivia Smith", doctor: "Dr. Marcus Lee", status: "Checked In" },
@@ -25,9 +25,9 @@ const initialAppointments = [
   { date: "2025-10-30", time: "11:00 AM", patient: "Mohamed Ahmed", doctor: "Dr. Sarah Bell", status: "Awaiting" },
   { date: "2025-10-31", time: "11:00 AM", patient: "Omar Ali", doctor: "Dr. Marcus Lee", status: "Awaiting" },
   { date: "2025-10-31", time: "12:15 AM", patient: "Noah Williams", doctor: "Dr. Sarah Bell", status: "Awaiting" },
-  { date: "2025-10-31", time: "12:30 PM", patient: "Sarah Mohamed", doctor: "Dr. Marcus Lee", status: "Checked In" },
-  { date: "2025-10-31", time: "01:45 PM", patient: "Emma Brown", doctor: "Dr. Ava Chen", status: "Checked In" },
-  { date: "2025-11-03", time: "01:45 PM", patient: "Emma Brown", doctor: "Dr. Ava Chen", status: "Checked In" },
+  { date: "2025-11-01", time: "12:30 PM", patient: "Sarah Mohamed", doctor: "Dr. Marcus Lee", status: "Checked In" },
+  { date: "2025-11-01", time: "01:45 PM", patient: "Emma Brown", doctor: "Dr. Ava Chen", status: "Checked In" },
+  { date: "2025-11-01", time: "01:45 PM", patient: "Emma Brown", doctor: "Dr. Ava Chen", status: "Checked In" },
   { date: "2025-11-01", time: "02:30 PM", patient: "Sara Ahmed", doctor: "Dr. Marcus Lee", status: "Awaiting" },
   { date: "2025-11-01", time: "03:00 PM", patient: "Layla Ahmed", doctor: "Dr. Sarah Bell", status: "Cancelled" },
   { date: "2025-11-01", time: "04:00 PM", patient: "Mariam Ahmed", doctor: "Dr. Sarah Bell", status: "Cancelled" },
@@ -56,7 +56,8 @@ const getStatusIcon = (status) => {
 };
 
 const Appointments = () => {
-  // Persistent states from localStorage
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false); 
+
   const [currentPage, setCurrentPage] = useState(() => Number(localStorage.getItem("appointmentsPage")) || 1);
   const [selectedDate, setSelectedDate] = useState(() => localStorage.getItem("appointmentsDate") || new Date().toISOString().split("T")[0]);
 
@@ -72,7 +73,7 @@ const Appointments = () => {
   const dropdownRef = useRef(null);
   const itemsPerPage = 5;
 
-  // Save page and date to localStorage
+
   useEffect(() => localStorage.setItem("appointmentsPage", currentPage), [currentPage]);
   useEffect(() => localStorage.setItem("appointmentsDate", selectedDate), [selectedDate]);
 
@@ -109,7 +110,7 @@ const Appointments = () => {
     currentPage * itemsPerPage
   );
 
-  const handleNewAppointment = () => alert("🆕 New Appointment form will appear here!");
+  const handleNewAppointment = () => setIsAddModalOpen(true);
   const handleSaveNote = (index) => {
     const updated = [...appointments];
     updated[index].notes = noteText;
@@ -364,6 +365,22 @@ const Appointments = () => {
           </div>
         </PaginatedTable>
       </div>
+      {isAddModalOpen && (
+  <AddAppointmentModal
+    isOpen={isAddModalOpen}
+    onClose={() => setIsAddModalOpen(false)}
+onSave={(newAppt) => {
+  const nextId = appointments.length
+    ? Math.max(...appointments.map((a) => a.id)) + 1
+    : 1;
+
+  const apptWithId = { ...newAppt, id: nextId };
+  setAppointments((prev) => [...prev, apptWithId]);
+  setIsAddModalOpen(false);
+}}
+    doctorOptions={doctorOptions}
+  />
+)}
     </div>
   );
 };
