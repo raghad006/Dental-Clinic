@@ -88,8 +88,8 @@ class ClinicPatientSerializer(serializers.ModelSerializer):
 
 
 class AppointmentSerializer(serializers.ModelSerializer):
-    patient_name = serializers.CharField(write_only=True)  # frontend will send this
-    doctor_name = serializers.CharField(write_only=True)   # frontend will send this
+    patient_name = serializers.CharField(write_only=True)
+    doctor_name = serializers.CharField(write_only=True)  
 
     patient = serializers.PrimaryKeyRelatedField(read_only=True)
     doctor = serializers.PrimaryKeyRelatedField(read_only=True)
@@ -112,14 +112,12 @@ class AppointmentSerializer(serializers.ModelSerializer):
         read_only_fields = ["created_at", "updated_at"]
 
     def validate(self, data):
-        # Resolve patient by name
         try:
             patient = ClinicPatient.objects.get(name=data["patient_name"])
         except ClinicPatient.DoesNotExist:
             raise serializers.ValidationError({"patient_name": "Patient not found."})
         data["patient"] = patient
 
-        # Resolve doctor by name
         try:
             doctor = ClinicUser.objects.get(first_name__icontains=data["doctor_name"], role="doctor")
         except ClinicUser.DoesNotExist:
@@ -129,14 +127,12 @@ class AppointmentSerializer(serializers.ModelSerializer):
         return data
 
     def create(self, validated_data):
-        # Remove the write-only fields from validated_data
         validated_data.pop("patient_name", None)
         validated_data.pop("doctor_name", None)
         return super().create(validated_data)
     patient_name = serializers.CharField(source="patient.name", read_only=True)
     doctor_name = serializers.CharField(source="doctor.full_display_name", read_only=True)
     
-    # Make these writeable fields
     patient = serializers.PrimaryKeyRelatedField(
         queryset=ClinicPatient.objects.all(),
         write_only=True
@@ -164,11 +160,9 @@ class AppointmentSerializer(serializers.ModelSerializer):
         read_only_fields = ["created_at", "updated_at", "patient_name", "doctor_name"]
 
     def create(self, validated_data):
-        # Extract patient and doctor from validated data
         patient = validated_data.pop('patient')
         doctor = validated_data.pop('doctor')
         
-        # Create appointment with the proper relations
         appointment = Appointment.objects.create(
             patient=patient,
             doctor=doctor,

@@ -10,7 +10,7 @@ class ClinicUser(AbstractUser):
         ('nurse', 'Nurse'),
     )
 
-    username = None  # remove username
+    username = None  
     email = models.EmailField(unique=True)
     role = models.CharField(max_length=10, choices=ROLE_CHOICES, default='nurse')
     registration_code = models.CharField(max_length=50, blank=True, null=True)
@@ -18,7 +18,6 @@ class ClinicUser(AbstractUser):
     USERNAME_FIELD = "email"
     REQUIRED_FIELDS = []
 
-    # Fix reverse accessor conflicts
     groups = models.ManyToManyField(
         Group,
         related_name='clinicuser_set',
@@ -92,7 +91,7 @@ class Appointment(models.Model):
         ClinicPatient, on_delete=models.CASCADE, related_name="appointments"
     )
     doctor = models.ForeignKey(
-        "ClinicUser",  # string reference avoids circular import
+        "ClinicUser", 
         on_delete=models.SET_NULL,
         null=True,
         limit_choices_to={"role": "doctor"}
