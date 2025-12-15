@@ -1,5 +1,17 @@
 import React, { useState, useMemo, useRef, useEffect } from "react";
-import { Plus, Search, Filter, SortAsc, ChevronDown } from "lucide-react";
+import { 
+  Search, 
+  Filter, 
+  SortAsc, 
+  ChevronDown, 
+  UserPlus,
+  Users,
+  User,
+  Phone,
+  Cake,
+  Mars,
+  Venus,
+} from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import PaginatedTable from "./components/PaginatedTable";
 
@@ -11,26 +23,17 @@ const AllPatients = ({ isOpen }) => {
   const [filterOption, setFilterOption] = useState("");
   const [showSortMenu, setShowSortMenu] = useState(false);
   const [showFilterMenu, setShowFilterMenu] = useState(false);
-  const [showAddPatientModal, setShowAddPatientModal] = useState(false);
-  const [newPatient, setNewPatient] = useState({
-    patient_id: "",
-    name: "",
-    age: "",
-    gender: "",
-    phone: "",
-    medicalHistory: "",
-    allergies: ""
-  });
-  const [showGenderMenu, setShowGenderMenu] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 5;
+  const [loading, setLoading] = useState(false);
+  const itemsPerPage = 8;
 
-  const genderDropdownRef = useRef(null);
+  const filterDropdownRef = useRef(null);
+  const sortDropdownRef = useRef(null);
 
   const [patients, setPatients] = useState([]);
 
-  // Fetch all patients from backend
   const fetchPatients = async () => {
+    setLoading(true);
     try {
       const res = await fetch("http://127.0.0.1:8000/api/clinic-patients/");
       if (!res.ok) throw new Error("Failed to fetch patients");
@@ -38,7 +41,8 @@ const AllPatients = ({ isOpen }) => {
       setPatients(data);
     } catch (err) {
       console.error(err);
-      alert("Error fetching patients");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -48,18 +52,16 @@ const AllPatients = ({ isOpen }) => {
 
   useEffect(() => {
     const handleClickOutside = (event) => {
-      if (genderDropdownRef.current && !genderDropdownRef.current.contains(event.target)) {
-        setShowGenderMenu(false);
+      if (filterDropdownRef.current && !filterDropdownRef.current.contains(event.target)) {
+        setShowFilterMenu(false);
+      }
+      if (sortDropdownRef.current && !sortDropdownRef.current.contains(event.target)) {
+        setShowSortMenu(false);
       }
     };
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
-
-  const generatePatientID = () => {
-    const randomNumber = Math.floor(1000 + Math.random() * 9000);
-    return `PAT${randomNumber}`;
-  };
 
   const filteredPatients = useMemo(() => {
     let data = [...patients];
@@ -88,197 +90,341 @@ const AllPatients = ({ isOpen }) => {
     currentPage * itemsPerPage
   );
 
-  const handleAddPatient = async () => {
-    if (!newPatient.name || !newPatient.age || !newPatient.gender) {
-      alert("Please fill all required fields!");
-      return;
-    }
-
-    try {
-      const res = await fetch("http://127.0.0.1:8000/api/clinic-patient/add/", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          patient_id: newPatient.patient_id,
-          name: newPatient.name,
-          age: Number(newPatient.age),
-          gender: newPatient.gender,
-          phone: newPatient.phone,
-          medical_history: newPatient.medicalHistory,
-          allergies: newPatient.allergies
-        }),
-      });
-
-      if (!res.ok) throw new Error("Failed to add patient");
-
-      const data = await res.json();
-      // Refresh patient list from backend
-      fetchPatients();
-      setShowAddPatientModal(false);
-    } catch (err) {
-      console.error(err);
-      alert("Error adding patient");
-    }
-  };
-
   return (
-    <div className={`transition-all duration-300 relative ${isOpen ? "ml-2" : "ml-0"}`}>
-      <div className="max-w-6xl mx-auto bg-white p-7 rounded-2xl shadow-md mt-8 relative">
-        {/* Header */}
-        <div className="mb-6 flex items-center justify-between">
-          <h1 className="text-3xl font-extrabold text-gray-800">All Patients</h1>
-          <button
-            onClick={() => {
-              setNewPatient({
-                patient_id: generatePatientID(),
-                name: "",
-                age: "",
-                gender: "",
-                phone: "",
-                medicalHistory: "",
-                allergies: ""
-              });
-              setShowAddPatientModal(true);
-            }}
-            className="flex items-center gap-2 bg-blue-600 text-white px-5 py-2 rounded-lg hover:bg-blue-700 transition"
-          >
-            <Plus className="w-5 h-5" />
-            <span>Add New Patient</span>
-          </button>
-        </div>
-
-        {/* Search + Filters */}
-        <div className="flex flex-wrap items-center gap-3 mb-8 relative">
-          <div className="flex items-center bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 w-full md:w-1/3 shadow-sm">
-            <Search className="w-5 h-5 text-gray-400 mr-2" />
-            <input
-              type="text"
-              placeholder="Search patients..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="bg-transparent outline-none flex-1 text-sm text-gray-700"
-            />
-          </div>
-
-          {/* Filter dropdown */}
-          <div
-            className="relative flex items-center bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 shadow-sm cursor-pointer hover:bg-gray-100 transition"
-            onClick={() => { setShowFilterMenu(!showFilterMenu); setShowSortMenu(false); }}
-          >
-            <Filter className="w-5 h-5 text-gray-400 mr-2" />
-            <span className="text-sm text-gray-700">{filterOption || "Filter by gender"}</span>
-            <ChevronDown className="w-4 h-4 text-gray-400 ml-1" />
-            {showFilterMenu && (
-              <div className="absolute top-full mt-2 left-0 bg-white shadow-lg rounded-lg border w-40 z-10">
-                <button onClick={() => setFilterOption("Male")} className="block w-full text-left px-4 py-2 hover:bg-gray-100 text-sm">Male</button>
-                <button onClick={() => setFilterOption("Female")} className="block w-full text-left px-4 py-2 hover:bg-gray-100 text-sm">Female</button>
-                <button onClick={() => setFilterOption("")} className="block w-full text-left px-4 py-2 hover:bg-gray-100 text-sm text-gray-500">Clear Filter</button>
-              </div>
-            )}
-          </div>
-
-          {/* Sort dropdown */}
-          <div
-            className="relative flex items-center bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 shadow-sm cursor-pointer hover:bg-gray-100 transition"
-            onClick={() => { setShowSortMenu(!showSortMenu); setShowFilterMenu(false); }}
-          >
-            <SortAsc className="w-5 h-5 text-gray-400 mr-2" />
-            <span className="text-sm text-gray-700">{sortOption ? `Sort by ${sortOption}` : "Sort by"}</span>
-            <ChevronDown className="w-4 h-4 text-gray-400 ml-1" />
-            {showSortMenu && (
-              <div className="absolute top-full mt-2 left-0 bg-white shadow-lg rounded-lg border w-44 z-10">
-                <button onClick={() => setSortOption("name")} className="block w-full text-left px-4 py-2 hover:bg-gray-100 text-sm">Name</button>
-                <button onClick={() => setSortOption("age")} className="block w-full text-left px-4 py-2 hover:bg-gray-100 text-sm">Age</button>
-                <button onClick={() => setSortOption("")} className="block w-full text-left px-4 py-2 hover:bg-gray-100 text-sm text-gray-500">Clear Sort</button>
-              </div>
-            )}
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-white p-4 md:p-6">
+      <div className="max-w-7xl mx-auto">
+        <div className="mb-8">
+          <div className="flex items-center gap-4 mb-3">
+            <div className="p-3 bg-gradient-to-r from-blue-500 to-blue-600 rounded-2xl shadow-lg">
+              <Users className="text-white" size={32} />
+            </div>
+            <div>
+              <h1 className="text-3xl md:text-4xl font-bold text-gray-800">
+                Patients
+              </h1>
+              <p className="text-blue-600 mt-1">
+                Manage and view all patient records
+              </p>
+            </div>
           </div>
         </div>
 
-        {/* Table */}
-        <PaginatedTable
-          currentPage={currentPage}
-          setCurrentPage={setCurrentPage}
-          itemsPerPage={itemsPerPage}
-          totalItems={filteredPatients.length}
-        >
-          <div className="rounded-2xl overflow-visible shadow-sm relative border border-gray-100">
-            <table className="w-full text-left text-sm">
-              <thead>
-                <tr className="border-b">
-                  <th className="py-3 px-3">Patient ID</th>
-                  <th className="py-3 px-3">Name</th>
-                  <th className="py-3 px-3">Age</th>
-                  <th className="py-3 px-3">Gender</th>
-                  <th className="py-3 px-3">Phone</th>
-                  <th className="py-3 px-3"></th>
-                </tr>
-              </thead>
-              <tbody>
-                {paginatedPatients.length > 0 ? (
-                  paginatedPatients.map((p) => (
-                    <tr key={p.patient_id} className="border-b last:border-none hover:bg-gray-50 transition">
-                      <td className="py-3 px-3">{p.patient_id}</td>
-                      <td className="py-3 px-3 font-medium text-gray-800">{p.name}</td>
-                      <td className="py-3 px-3">{p.age}</td>
-                      <td className="py-3 px-3">{p.gender}</td>
-                      <td className="py-3 px-3">{p.phone}</td>
-                      <td className="py-3 px-3 text-right">
-                        <button
-                          onClick={() => navigate(`/patients/${p.patient_id}`)}
-                          className="bg-blue-600 text-white px-4 py-1.5 rounded-md hover:bg-blue-700"
-                        >
-                          View Profile
-                        </button>
-                      </td>
-                    </tr>
-                  ))
-                ) : (
-                  <tr>
-                    <td colSpan="6" className="text-center py-6 text-gray-500">No patients found</td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </PaginatedTable>
-      </div>
-
-      {/* Add Patient Modal */}
-      {showAddPatientModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-          <div className="bg-white rounded-2xl shadow-xl p-6 w-96 relative">
-            <h2 className="text-xl font-bold mb-4">Add New Patient</h2>
-            <div className="flex flex-col gap-3">
-              <input type="text" placeholder="Patient ID" value={newPatient.patient_id} disabled className="p-2 rounded-2xl shadow-sm bg-gray-50 outline-none text-gray-700" />
-              <input type="text" placeholder="Patient Name" value={newPatient.name} onChange={(e) => setNewPatient({ ...newPatient, name: e.target.value })} className="p-2 rounded-2xl shadow-sm border border-gray-200 outline-none text-gray-700" />
-              <input type="number" placeholder="Age" value={newPatient.age} onChange={(e) => setNewPatient({ ...newPatient, age: e.target.value })} className="p-2 rounded-2xl shadow-sm border border-gray-200 outline-none text-gray-700" />
-              <input type="text" placeholder="Phone Number" value={newPatient.phone} onChange={(e) => setNewPatient({ ...newPatient, phone: e.target.value })} className="p-2 rounded-2xl shadow-sm border border-gray-200 outline-none text-gray-700" />
-              <textarea placeholder="Medical History" value={newPatient.medicalHistory} onChange={(e) => setNewPatient({ ...newPatient, medicalHistory: e.target.value })} className="p-2 rounded-2xl shadow-sm border border-gray-200 outline-none text-gray-700 resize-none" rows={3} />
-              <textarea placeholder="Allergies" value={newPatient.allergies} onChange={(e) => setNewPatient({ ...newPatient, allergies: e.target.value })} className="p-2 rounded-2xl shadow-sm border border-gray-200 outline-none text-gray-700 resize-none" rows={2} />
-
-              {/* Gender Dropdown */}
-              <div className="relative" ref={genderDropdownRef}>
-                <div className="flex items-center bg-white rounded-2xl px-3 py-2 shadow-[0_2px_6px_rgba(0,0,0,0.05)] cursor-pointer hover:bg-gray-50 transition" onClick={() => setShowGenderMenu(!showGenderMenu)}>
-                  <span className="text-sm text-gray-700">{newPatient.gender || "Select Gender"}</span>
-                  <ChevronDown className="w-4 h-4 text-gray-400 ml-auto" />
+        <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-2xl p-6 md:p-8 border border-blue-100">
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between mb-8 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="bg-gradient-to-r from-blue-50 to-blue-100 rounded-xl p-4 border border-blue-200">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-blue-600 font-medium">Total Patients</p>
+                    <p className="text-2xl font-bold text-gray-800">
+                      {patients.length}
+                    </p>
+                  </div>
+                  <div className="p-3 bg-blue-100 rounded-lg">
+                    <Users className="w-5 h-5 text-blue-600" />
+                  </div>
                 </div>
-                {showGenderMenu && (
-                  <div className="absolute bottom-full mb-2 left-0 w-full bg-white rounded-2xl shadow-[0_4px_12px_rgba(0,0,0,0.1)] z-10">
-                    <button onClick={() => { setNewPatient({ ...newPatient, gender: "Male" }); setShowGenderMenu(false); }} className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-t-2xl transition">Male</button>
-                    <button onClick={() => { setNewPatient({ ...newPatient, gender: "Female" }); setShowGenderMenu(false); }} className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-b-2xl transition">Female</button>
+              </div>
+              
+              <div className="bg-gradient-to-r from-blue-50 to-blue-100 rounded-xl p-4 border border-blue-200">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-blue-600 font-medium">Male Patients</p>
+                    <p className="text-2xl font-bold text-gray-800">
+                      {patients.filter(p => p.gender === "Male").length}
+                    </p>
+                  </div>
+                  <div className="p-3 bg-blue-100 rounded-lg">
+                    <Mars className="w-5 h-5 text-blue-600" />
+                  </div>
+                </div>
+              </div>
+              
+              <div className="bg-gradient-to-r from-blue-50 to-blue-100 rounded-xl p-4 border border-blue-200">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-pink-600 font-medium">Female Patients</p>
+                    <p className="text-2xl font-bold text-gray-800">
+                      {patients.filter(p => p.gender === "Female").length}
+                    </p>
+                  </div>
+                  <div className="p-3 bg-pink-100 rounded-lg">
+                    <Venus className="w-5 h-5 text-pink-600" />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* FIXED: Changed to navigate to /patients/add */}
+            <button
+              onClick={() => navigate("/patients/add")}
+              className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 whitespace-nowrap"
+            >
+              <UserPlus size={20} /> Add New Patient
+            </button>
+          </div>
+
+          {/* Search & Filters */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+            {/* Search */}
+            <div className="bg-white rounded-xl p-4 border border-blue-100 shadow-sm">
+              <label className="block text-sm font-semibold text-blue-800 mb-2">
+                <Search className="inline mr-2" size={16} />
+                Search Patient
+              </label>
+              <div className="relative">
+                <input
+                  type="text"
+                  placeholder="Type patient name or ID..."
+                  className="w-full border border-blue-200 rounded-lg px-3 py-2.5 pl-10 focus:ring-1 focus:ring-blue-400 focus:border-blue-400 bg-white transition-all text-sm"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                />
+                <Search className="absolute left-3 top-2.5 text-blue-400" size={16} />
+              </div>
+            </div>
+
+            {/* Filter */}
+            <div className="bg-white rounded-xl p-4 border border-blue-100 shadow-sm" ref={filterDropdownRef}>
+              <label className="block text-sm font-semibold text-blue-800 mb-2">
+                <Filter className="inline mr-2" size={16} />
+                Filter by Gender
+              </label>
+              <div className="relative">
+                <button
+                  className="w-full border border-blue-200 rounded-lg px-3 py-2.5 text-left flex justify-between items-center hover:border-blue-400 transition-all bg-white text-sm"
+                  onClick={() => {
+                    setShowFilterMenu(!showFilterMenu);
+                    setShowSortMenu(false);
+                  }}
+                >
+                  <span className="text-gray-700">
+                    {filterOption || "All Patients"}
+                  </span>
+                  <ChevronDown className={`text-blue-500 transition-transform ${showFilterMenu ? 'rotate-180' : ''}`} size={16} />
+                </button>
+
+                {showFilterMenu && (
+                  <div className="absolute z-20 w-full mt-1 bg-white rounded-lg shadow-xl border border-blue-200">
+                    <button
+                      className="block w-full text-left px-3 py-2 hover:bg-blue-50 transition-all text-sm"
+                      onClick={() => {
+                        setFilterOption("");
+                        setShowFilterMenu(false);
+                      }}
+                    >
+                      <span className="font-medium text-blue-600">All Patients</span>
+                    </button>
+                    <button
+                      className="block w-full text-left px-3 py-2 hover:bg-blue-50 transition-all text-sm flex items-center gap-2"
+                      onClick={() => {
+                        setFilterOption("Male");
+                        setShowFilterMenu(false);
+                      }}
+                    >
+                      <Mars className="w-3.5 h-3.5 text-blue-500" /> Male
+                    </button>
+                    <button
+                      className="block w-full text-left px-3 py-2 hover:bg-blue-50 transition-all text-sm flex items-center gap-2"
+                      onClick={() => {
+                        setFilterOption("Female");
+                        setShowFilterMenu(false);
+                      }}
+                    >
+                      <Venus className="w-3.5 h-3.5 text-pink-500" /> Female
+                    </button>
                   </div>
                 )}
               </div>
             </div>
 
-            <div className="mt-4 flex justify-end gap-2">
-              <button onClick={() => setShowAddPatientModal(false)} className="px-4 py-2 rounded-2xl bg-gray-200 hover:bg-gray-300 transition">Cancel</button>
-              <button onClick={handleAddPatient} className="px-4 py-2 rounded-2xl bg-blue-600 text-white hover:bg-blue-700 transition">Add Patient</button>
+            {/* Sort */}
+            <div className="bg-white rounded-xl p-4 border border-blue-100 shadow-sm" ref={sortDropdownRef}>
+              <label className="block text-sm font-semibold text-blue-800 mb-2">
+                <SortAsc className="inline mr-2" size={16} />
+                Sort Patients
+              </label>
+              <div className="relative">
+                <button
+                  className="w-full border border-blue-200 rounded-lg px-3 py-2.5 text-left flex justify-between items-center hover:border-blue-400 transition-all bg-white text-sm"
+                  onClick={() => {
+                    setShowSortMenu(!showSortMenu);
+                    setShowFilterMenu(false);
+                  }}
+                >
+                  <span className="text-gray-700">
+                    {sortOption ? `Sort by ${sortOption}` : "Default"}
+                  </span>
+                  <ChevronDown className={`text-blue-500 transition-transform ${showSortMenu ? 'rotate-180' : ''}`} size={16} />
+                </button>
+
+                {showSortMenu && (
+                  <div className="absolute z-20 w-full mt-1 bg-white rounded-lg shadow-xl border border-blue-200">
+                    <button
+                      className="block w-full text-left px-3 py-2 hover:bg-blue-50 transition-all text-sm"
+                      onClick={() => {
+                        setSortOption("");
+                        setShowSortMenu(false);
+                      }}
+                    >
+                      <span className="font-medium text-blue-600">Default</span>
+                    </button>
+                    <button
+                      className="block w-full text-left px-3 py-2 hover:bg-blue-50 transition-all text-sm"
+                      onClick={() => {
+                        setSortOption("name");
+                        setShowSortMenu(false);
+                      }}
+                    >
+                      Name (A-Z)
+                    </button>
+                    <button
+                      className="block w-full text-left px-3 py-2 hover:bg-blue-50 transition-all text-sm"
+                      onClick={() => {
+                        setSortOption("age");
+                        setShowSortMenu(false);
+                      }}
+                    >
+                      Age (Youngest to Oldest)
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Patients Table */}
+          <div className="rounded-2xl overflow-hidden border border-blue-100 mb-6">
+            {loading ? (
+              <div className="p-12 text-center">
+                <div className="inline-block w-10 h-10 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+                <p className="mt-4 text-blue-600">Loading patients...</p>
+              </div>
+            ) : (
+              <>
+                <div className="bg-gradient-to-r from-blue-50 to-blue-100 border-b border-blue-200">
+                  <div className="grid grid-cols-12 gap-4 p-4 text-sm font-semibold text-blue-800">
+                    <div className="col-span-2">Patient ID</div>
+                    <div className="col-span-3">Name</div>
+                    <div className="col-span-1">Age</div>
+                    <div className="col-span-2">Gender</div>
+                    <div className="col-span-2">Phone</div>
+                    <div className="col-span-2 text-right">Actions</div>
+                  </div>
+                </div>
+
+                <div className="divide-y divide-blue-50">
+                  {paginatedPatients.length > 0 ? (
+                    paginatedPatients.map((p) => (
+                      <div
+                        key={p.patient_id}
+                        className="grid grid-cols-12 gap-4 p-4 hover:bg-blue-50/50 transition-all duration-200 items-center text-sm"
+                      >
+                        <div className="col-span-2">
+                          <div className="font-bold text-gray-800">{p.patient_id}</div>
+                        </div>
+                        
+                        <div className="col-span-3">
+                          <div className="flex items-center gap-2">
+                            <div className="p-1 bg-blue-100 rounded-lg">
+                              <User className="text-blue-600" size={14} />
+                            </div>
+                            <span className="font-medium text-gray-800">{p.name}</span>
+                          </div>
+                        </div>
+                        
+                        <div className="col-span-1">
+                          <div className="flex items-center gap-1">
+                            <Cake className="w-3.5 h-3.5 text-blue-500" />
+                            <span className="font-medium text-gray-800">{p.age}</span>
+                          </div>
+                        </div>
+                        
+                        <div className="col-span-2">
+                          <span className={`px-3 py-1.5 rounded-full text-xs font-semibold ${
+                            p.gender === "Male" 
+                              ? "bg-blue-100 text-blue-700" 
+                              : "bg-pink-100 text-pink-700"
+                          }`}>
+                            {p.gender}
+                          </span>
+                        </div>
+                        
+                        <div className="col-span-2">
+                          <div className="flex items-center gap-1">
+                            <Phone className="w-3.5 h-3.5 text-blue-500" />
+                            <span className="text-gray-700">{p.phone || "Not provided"}</span>
+                          </div>
+                        </div>
+                        
+                        <div className="col-span-2 text-right">
+                          <button
+                            onClick={() => navigate(`/patients/${p.patient_id}`)}
+                            className="flex items-center gap-1 px-3 py-2 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white rounded-lg text-xs font-medium transition-all shadow-sm"
+                          >
+                            <User size={12} /> View Profile
+                          </button>
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="p-12 text-center">
+                      <div className="p-4 bg-blue-50 border-2 border-blue-200 rounded-2xl inline-block mb-4">
+                        <Users className="text-blue-500" size={48} />
+                      </div>
+                      <h3 className="text-xl font-bold text-gray-800 mb-2">No Patients Found</h3>
+                      <p className="text-gray-600 mb-6">
+                        {searchTerm || filterOption 
+                          ? "Try changing your search or filter criteria"
+                          : "No patients in the system yet"}
+                      </p>
+                      {!searchTerm && !filterOption && (
+                        <button
+                          onClick={() => navigate("/patients/add")}
+                          className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-300"
+                        >
+                          <UserPlus size={20} /> Add First Patient
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
+          </div>
+
+          {/* Pagination */}
+          {filteredPatients.length > 0 && (
+            <PaginatedTable
+              currentPage={currentPage}
+              setCurrentPage={setCurrentPage}
+              itemsPerPage={itemsPerPage}
+              totalItems={filteredPatients.length}
+            />
+          )}
+
+          {/* Summary Footer */}
+          <div className="mt-8 p-4 bg-gradient-to-r from-blue-50 to-blue-100 rounded-xl border border-blue-200">
+            <div className="flex items-center justify-between text-sm text-blue-800">
+              <div>
+                <span className="font-semibold">{filteredPatients.length}</span> patients found
+                {filterOption && ` (${filterOption} only)`}
+                {searchTerm && ` matching "${searchTerm}"`}
+              </div>
+              <div className="flex items-center gap-4">
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 rounded-full bg-blue-500"></div>
+                  <span>Male: {patients.filter(p => p.gender === "Male").length}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 rounded-full bg-pink-500"></div>
+                  <span>Female: {patients.filter(p => p.gender === "Female").length}</span>
+                </div>
+              </div>
             </div>
           </div>
         </div>
-      )}
+      </div>
     </div>
   );
 };

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   CheckCircle,
   XCircle,
@@ -11,19 +12,20 @@ import {
   FileText,
   Save,
   X,
+  CalendarDays,
+  Users,
+  Stethoscope,
+  Check,
+  AlertCircle,
 } from "lucide-react";
 import CalendarDropdown from "./components/CalendarDropdown";
 import PaginatedTable from "./components/PaginatedTable";
-import AddAppointmentModal from "./components/AddAppointmentModal";
 
 const statusOptions = ["Awaiting", "Checked In", "Cancelled"];
-const doctorOptions = ["Dr. Ava Chen", "Dr. Marcus Lee", "Dr. Sarah Bell"];
-const patientOptions = ["John Doe", "Jane Smith", "Alice Johnson", "Bob Lee"]; // ✅ added patient list
-
 const statusColors = {
-  Awaiting: "bg-blue-100 text-blue-700",
-  "Checked In": "bg-green-500 text-white",
-  Cancelled: "bg-red-500 text-white",
+  Awaiting: "bg-blue-100 text-blue-700 border border-blue-200",
+  "Checked In": "bg-gradient-to-r from-green-500 to-green-600 text-white",
+  Cancelled: "bg-gradient-to-r from-red-500 to-red-600 text-white",
 };
 
 const getStatusIcon = (status) => {
@@ -39,7 +41,7 @@ const getStatusIcon = (status) => {
 };
 
 const Appointments = () => {
-  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const navigate = useNavigate();
   const [appointments, setAppointments] = useState([]);
   const [currentPage, setCurrentPage] = useState(
     () => Number(localStorage.getItem("appointmentsPage")) || 1
@@ -55,59 +57,93 @@ const Appointments = () => {
   const [filterDoctor, setFilterDoctor] = useState(null);
   const [editingNoteIndex, setEditingNoteIndex] = useState(null);
   const [noteText, setNoteText] = useState("");
+  const [doctorOptions, setDoctorOptions] = useState([]);
+  const [loading, setLoading] = useState(false);
   const dropdownRef = useRef(null);
-  const itemsPerPage = 5;
+  const itemsPerPage = 8;
 
+  // Save page/date in localStorage
   useEffect(() => localStorage.setItem("appointmentsPage", currentPage), [currentPage]);
   useEffect(() => localStorage.setItem("appointmentsDate", selectedDate), [selectedDate]);
 
-  // Fetch appointments from backend
+  // Fetch doctors & appointments
   useEffect(() => {
-    const fetchAppointments = async () => {
+    const fetchDoctors = async () => {
       try {
-        const res = await fetch("/api/appointments/", {
-          headers: {
-            "Content-Type": "application/json",
-            // Add auth token if required
-            // "Authorization": `Bearer ${localStorage.getItem("token")}`,
-          },
-        });
+        const res = await fetch("http://127.0.0.1:8000/api/staff/");
+        const data = await res.json();
+        const doctorNames = data.map((d) => d.full_display_name);
+        setDoctorOptions(doctorNames);
+      } catch (err) {
+        console.error("Failed to fetch doctors:", err);
+      }
+    };
+
+    const fetchAppointments = async () => {
+      setLoading(true);
+      try {
+        const res = await fetch("http://127.0.0.1:8000/api/appointments/");
         if (!res.ok) throw new Error("Failed to fetch appointments");
         const data = await res.json();
         setAppointments(data);
       } catch (err) {
         console.error(err);
-        alert("Failed to fetch appointments from backend");
+      } finally {
+        setLoading(false);
       }
     };
+
+    fetchDoctors();
     fetchAppointments();
   }, []);
 
+  // Close dropdown if click outside
   useEffect(() => {
     const handleClickOutside = (e) => {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
         setOpenStatusDropdownIndex(null);
+        setOpenDoctorDropdown(false);
+        setOpenHeaderStatusDropdown(false);
       }
     };
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const updateStatus = (globalIndex, newStatus) => {
-    const updated = [...appointments];
-    updated[globalIndex] = { ...updated[globalIndex], status: newStatus };
-    setAppointments(updated);
-    setOpenStatusDropdownIndex(null);
+  const updateStatus = async (globalIndex, newStatus) => {
+    const appt = appointments[globalIndex];
+    try {
+      const res = await fetch(`http://127.0.0.1:8000/api/appointments/${appt.id}/`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: newStatus }),
+      });
+      if (!res.ok) throw new Error("Failed to update status");
+      const updatedAppt = await res.json();
+
+      const updated = [...appointments];
+      updated[globalIndex] = {
+        ...updated[globalIndex],
+        status: updatedAppt.status,
+      };
+      setAppointments(updated);
+      setOpenStatusDropdownIndex(null);
+    } catch (err) {
+      console.error(err);
+      alert("Failed to update status on server");
+    }
   };
 
+  // Filter appointments
   const filteredAppointments = appointments.filter((appt) => {
     const apptDate = appt.date?.split("T")[0];
     const selected = selectedDate?.split("T")[0];
+
     return (
       apptDate === selected &&
       (!filterStatus || appt.status === filterStatus) &&
-      (!filterDoctor || appt.doctor === filterDoctor) &&
-      appt.patient.toLowerCase().includes(search.toLowerCase())
+      (!filterDoctor || appt.doctor_display === filterDoctor) &&
+      appt.patient_display?.toLowerCase().includes(search.toLowerCase())
     );
   });
 
@@ -116,296 +152,495 @@ const Appointments = () => {
     currentPage * itemsPerPage
   );
 
-  const handleNewAppointment = () => setIsAddModalOpen(true);
+  const handleSaveNote = async (index) => {
+    const appt = appointments[index];
+    try {
+      const res = await fetch(`http://127.0.0.1:8000/api/appointments/${appt.id}/`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ notes: noteText }),
+      });
+      if (!res.ok) throw new Error("Failed to save note");
+      const updatedAppt = await res.json();
 
-  const handleSaveNote = (index) => {
-    const updated = [...appointments];
-    updated[index].notes = noteText;
-    setAppointments(updated);
-    setEditingNoteIndex(null);
-    setNoteText("");
+      const updated = [...appointments];
+      updated[index] = {
+        ...updated[index],
+        notes: updatedAppt.notes,
+      };
+      setAppointments(updated);
+      setEditingNoteIndex(null);
+      setNoteText("");
+    } catch (err) {
+      console.error(err);
+      alert("Failed to save note on server");
+    }
+  };
+
+  const handleReschedule = (appointment) => {
+    navigate("/appointments/add", { 
+      state: { 
+        isReschedule: true, 
+        appointmentData: appointment 
+      } 
+    });
   };
 
   return (
-    <div className="p-10 w-full max-w-7xl mx-auto">
-      <div className="bg-white rounded-3xl shadow-lg p-8 overflow-visible relative">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-white p-4 md:p-6">
+      <div className="max-w-7xl mx-auto">
         {/* Header */}
-        <div className="flex justify-between items-center mb-8 flex-wrap gap-4">
-          <h1 className="text-3xl font-extrabold text-gray-800">Appointments</h1>
-          <div className="flex items-center gap-3 relative">
+        <div className="mb-8">
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-4">
+              <div className="p-3 bg-gradient-to-r from-blue-500 to-blue-600 rounded-2xl shadow-lg">
+                <CalendarDays className="text-white" size={32} />
+              </div>
+              <div>
+                <h1 className="text-3xl md:text-4xl font-bold text-gray-800">
+                  Appointments
+                </h1>
+                <p className="text-blue-600 mt-1">
+                  Manage and track all patient appointments
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => navigate("/appointments/add")}
+              className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-300"
+            >
+              <Plus size={20} /> New Appointment
+            </button>
+          </div>
+
+          {/* Stats Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+            <div className="bg-white rounded-xl p-5 border border-blue-100 shadow-sm">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-gray-600 text-sm">Total Today</p>
+                  <p className="text-2xl font-bold text-gray-800">
+                    {filteredAppointments.length}
+                  </p>
+                </div>
+                <div className="p-3 bg-blue-100 rounded-lg">
+                  <CalendarDays className="text-blue-600" size={24} />
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-white rounded-xl p-5 border border-blue-100 shadow-sm">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-gray-600 text-sm">Awaiting</p>
+                  <p className="text-2xl font-bold text-blue-600">
+                    {filteredAppointments.filter(a => a.status === "Awaiting").length}
+                  </p>
+                </div>
+                <div className="p-3 bg-blue-100 rounded-lg">
+                  <Clock className="text-blue-600" size={24} />
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-white rounded-xl p-5 border border-blue-100 shadow-sm">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-gray-600 text-sm">Checked In</p>
+                  <p className="text-2xl font-bold text-green-600">
+                    {filteredAppointments.filter(a => a.status === "Checked In").length}
+                  </p>
+                </div>
+                <div className="p-3 bg-green-100 rounded-lg">
+                  <CheckCircle className="text-green-600" size={24} />
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-white rounded-xl p-5 border border-blue-100 shadow-sm">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-gray-600 text-sm">Cancelled</p>
+                  <p className="text-2xl font-bold text-red-600">
+                    {filteredAppointments.filter(a => a.status === "Cancelled").length}
+                  </p>
+                </div>
+                <div className="p-3 bg-red-100 rounded-lg">
+                  <XCircle className="text-red-600" size={24} />
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Main Content */}
+        <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-2xl p-6 md:p-8 border border-blue-100">
+          {/* Date Selection & Filters */}
+          <div className="flex items-center justify-between mb-8 flex-wrap gap-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-blue-100 rounded-lg">
+                <CalendarDays className="text-blue-600" size={20} />
+              </div>
+              <h2 className="text-xl font-bold text-gray-800">Select Date</h2>
+            </div>
             <CalendarDropdown
               selectedDate={selectedDate}
               onDateChange={(date) => setSelectedDate(date)}
             />
-            <button
-              onClick={handleNewAppointment}
-              className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl text-sm font-medium shadow-md transition-all duration-300"
-            >
-              <Plus size={18} /> New Appointment
-            </button>
-          </div>
-        </div>
-
-        {/* Filters */}
-        <div className="flex items-center gap-4 mb-8 flex-wrap">
-          <div className="relative">
-            <Search size={18} className="absolute left-3 top-2.5 text-gray-400" />
-            <input
-              type="text"
-              placeholder="Search patient..."
-              className="w-80 pl-10 pr-4 py-2 bg-gray-50 rounded-2xl shadow-sm focus:ring-2 focus:ring-blue-400 focus:outline-none text-gray-600 transition-all duration-300"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
           </div>
 
-          {/* Doctor Filter */}
-          <div className="relative w-56">
-            <button
-              className="w-full py-2 px-3 bg-white rounded-2xl shadow-sm flex justify-between items-center text-gray-600 hover:bg-gray-50 transition-all border border-gray-100"
-              onClick={() => {
-                setOpenDoctorDropdown(!openDoctorDropdown);
-                setOpenHeaderStatusDropdown(false);
-              }}
-            >
-              <span className="flex items-center gap-2">
-                <Filter size={16} className="text-gray-500" />
-                {filterDoctor || "Filter by Doctor"}
-              </span>
-              <ChevronDown size={16} className="text-gray-500" />
-            </button>
+          {/* Filters Section - Made Smaller */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+            {/* Search Patient */}
+            <div className="bg-white rounded-xl p-4 border border-blue-100 shadow-sm">
+              <label className="block text-sm font-semibold text-blue-800 mb-2">
+                <Search className="inline mr-2" size={16} />
+                Search Patient
+              </label>
+              <div className="relative">
+                <input
+                  type="text"
+                  placeholder="Type patient name..."
+                  className="w-full border border-blue-200 rounded-lg px-3 py-2.5 pl-10 focus:ring-1 focus:ring-blue-400 focus:border-blue-400 bg-white transition-all text-sm"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                />
+                <Search className="absolute left-3 top-2.5 text-blue-400" size={16} />
+              </div>
+            </div>
 
-            {openDoctorDropdown && (
-              <div className="absolute w-full mt-2 bg-white rounded-2xl shadow-xl z-50">
-                {doctorOptions.map((doc) => (
-                  <button
-                    key={doc}
-                    className="w-full text-left px-4 py-2 text-gray-600 hover:bg-gray-100 transition-all"
-                    onClick={() => {
-                      setFilterDoctor(doc);
-                      setOpenDoctorDropdown(false);
-                    }}
-                  >
-                    {doc}
-                  </button>
-                ))}
-                {filterDoctor && (
-                  <button
-                    className="w-full px-4 py-2 text-red-600 hover:bg-red-50 text-left"
-                    onClick={() => setFilterDoctor(null)}
-                  >
-                    Clear Filter
-                  </button>
+            {/* Doctor Filter */}
+            <div className="bg-white rounded-xl p-4 border border-blue-100 shadow-sm">
+              <label className="block text-sm font-semibold text-blue-800 mb-2">
+                <Stethoscope className="inline mr-2" size={16} />
+                Filter by Doctor
+              </label>
+              <div className="relative">
+                <button
+                  className="w-full border border-blue-200 rounded-lg px-3 py-2.5 text-left flex justify-between items-center hover:border-blue-400 transition-all bg-white text-sm"
+                  onClick={() => {
+                    setOpenDoctorDropdown(!openDoctorDropdown);
+                    setOpenHeaderStatusDropdown(false);
+                  }}
+                >
+                  <span className="text-gray-700 truncate">
+                    {filterDoctor || "All Doctors"}
+                  </span>
+                  <ChevronDown className="text-blue-500 flex-shrink-0" size={16} />
+                </button>
+
+                {openDoctorDropdown && (
+                  <div className="absolute z-20 w-full mt-1 bg-white rounded-lg shadow-xl border border-blue-200 max-h-48 overflow-y-auto">
+                    <button
+                      className="block w-full text-left px-3 py-2 hover:bg-blue-50 border-b border-blue-100 transition-all text-sm"
+                      onClick={() => {
+                        setFilterDoctor(null);
+                        setOpenDoctorDropdown(false);
+                      }}
+                    >
+                      <span className="font-medium text-blue-600">All Doctors</span>
+                    </button>
+                    {doctorOptions.map((doc) => (
+                      <button
+                        key={doc}
+                        className="block w-full text-left px-3 py-2 hover:bg-blue-50 border-b border-blue-100 transition-all text-sm"
+                        onClick={() => {
+                          setFilterDoctor(doc);
+                          setOpenDoctorDropdown(false);
+                        }}
+                      >
+                        {doc}
+                      </button>
+                    ))}
+                  </div>
                 )}
               </div>
-            )}
-          </div>
+            </div>
 
-          {/* Status Filter */}
-          <div className="relative w-56">
-            <button
-              className="w-full py-2 px-3 bg-white rounded-2xl shadow-sm flex justify-between items-center text-gray-600 hover:bg-gray-50 transition-all border border-gray-100"
-              onClick={() => {
-                setOpenHeaderStatusDropdown(!openHeaderStatusDropdown);
-                setOpenDoctorDropdown(false);
-              }}
-            >
-              <span className="flex items-center gap-2">
-                <Filter size={16} className="text-gray-500" />
-                {filterStatus || "Filter by Status"}
-              </span>
-              <ChevronDown size={16} className="text-gray-500" />
-            </button>
+            {/* Status Filter */}
+            <div className="bg-white rounded-xl p-4 border border-blue-100 shadow-sm">
+              <label className="block text-sm font-semibold text-blue-800 mb-2">
+                <Filter className="inline mr-2" size={16} />
+                Filter by Status
+              </label>
+              <div className="relative">
+                <button
+                  className="w-full border border-blue-200 rounded-lg px-3 py-2.5 text-left flex justify-between items-center hover:border-blue-400 transition-all bg-white text-sm"
+                  onClick={() => {
+                    setOpenHeaderStatusDropdown(!openHeaderStatusDropdown);
+                    setOpenDoctorDropdown(false);
+                  }}
+                >
+                  <span className="text-gray-700 truncate">
+                    {filterStatus || "All Status"}
+                  </span>
+                  <ChevronDown className="text-blue-500 flex-shrink-0" size={16} />
+                </button>
 
-            {openHeaderStatusDropdown && (
-              <div className="absolute w-full mt-2 bg-white rounded-2xl shadow-xl z-50">
-                {statusOptions.map((s) => (
-                  <button
-                    key={s}
-                    className="w-full text-left px-4 py-2 hover:bg-gray-100 text-gray-600 transition-all"
-                    onClick={() => {
-                      setFilterStatus(s);
-                      setOpenHeaderStatusDropdown(false);
-                    }}
-                  >
-                    {s}
-                  </button>
-                ))}
-                {filterStatus && (
-                  <button
-                    className="w-full text-left px-4 py-2 text-red-600 hover:bg-red-50"
-                    onClick={() => setFilterStatus(null)}
-                  >
-                    Clear Filter
-                  </button>
+                {openHeaderStatusDropdown && (
+                  <div className="absolute z-20 w-full mt-1 bg-white rounded-lg shadow-xl border border-blue-200">
+                    <button
+                      className="block w-full text-left px-3 py-2 hover:bg-blue-50 border-b border-blue-100 transition-all text-sm"
+                      onClick={() => {
+                        setFilterStatus(null);
+                        setOpenHeaderStatusDropdown(false);
+                      }}
+                    >
+                      <span className="font-medium text-blue-600">All Status</span>
+                    </button>
+                    {statusOptions.map((s) => (
+                      <button
+                        key={s}
+                        className={`block w-full text-left px-3 py-2 hover:bg-blue-50 border-b border-blue-100 transition-all text-sm flex items-center gap-2 ${
+                          s === filterStatus ? "bg-blue-50" : ""
+                        }`}
+                        onClick={() => {
+                          setFilterStatus(s);
+                          setOpenHeaderStatusDropdown(false);
+                        }}
+                      >
+                        <div className={`w-2.5 h-2.5 rounded-full ${s === "Awaiting" ? "bg-blue-500" : s === "Checked In" ? "bg-green-500" : "bg-red-500"}`}></div>
+                        {s}
+                      </button>
+                    ))}
+                  </div>
                 )}
               </div>
-            )}
+            </div>
+
+            {/* Actions */}
+            <div className="bg-white rounded-xl p-4 border border-blue-100 shadow-sm">
+              <label className="block text-sm font-semibold text-blue-800 mb-2">
+                Quick Actions
+              </label>
+              <div className="flex gap-2">
+                {(filterStatus || filterDoctor) && (
+                  <button
+                    onClick={() => {
+                      setFilterStatus(null);
+                      setFilterDoctor(null);
+                      setSearch("");
+                    }}
+                    className="flex-1 border border-blue-200 text-blue-700 py-2 rounded-lg hover:bg-blue-50 transition-all text-xs font-medium"
+                  >
+                    Clear Filters
+                  </button>
+                )}
+                <button
+                  onClick={() => window.location.reload()}
+                  className="flex-1 border border-blue-200 text-blue-700 py-2 rounded-lg hover:bg-blue-50 transition-all text-xs font-medium"
+                >
+                  Refresh
+                </button>
+              </div>
+            </div>
           </div>
-        </div>
 
-        {/* Table */}
-        <PaginatedTable
-          currentPage={currentPage}
-          setCurrentPage={setCurrentPage}
-          itemsPerPage={itemsPerPage}
-          totalItems={filteredAppointments.length}
-        >
-          <div className="rounded-2xl overflow-visible shadow-sm relative border border-gray-100">
-            <table className="w-full text-sm">
-              <thead className="text-gray-600 bg-gray-50">
-                <tr>
-                  <th className="p-3 text-left">Time</th>
-                  <th className="p-3 text-left">Patient</th>
-                  <th className="p-3 text-left">Doctor</th>
-                  <th className="p-3 text-left">Status</th>
-                  <th className="p-3 text-left">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="text-gray-900" ref={dropdownRef}>
-                {paginatedAppointments.map((appt, index) => {
-                  const globalIndex = appointments.findIndex(
-                    (a) =>
-                      a.date === appt.date &&
-                      a.time === appt.time &&
-                      a.patient === appt.patient
-                  );
-                  return (
-                    <tr key={index} className="even:bg-gray-50 hover:bg-gray-100 transition-all duration-200">
-                      <td className="p-3 font-medium">{appt.time}</td>
-                      <td className="p-3">{appt.patient}</td>
-                      <td className="p-3">{appt.doctor}</td>
-                      <td className="p-3 relative">
-                        <button
-                          onClick={() =>
-                            setOpenStatusDropdownIndex(openStatusDropdownIndex === index ? null : index)
-                          }
-                          className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold shadow-sm focus:outline-none ${statusColors[appt.status]}`}
-                        >
-                          {getStatusIcon(appt.status)} {appt.status}
-                        </button>
+          {/* Table Section */}
+          <div className="rounded-2xl overflow-hidden border border-blue-100">
+            {loading ? (
+              <div className="p-12 text-center">
+                <div className="inline-block w-10 h-10 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+                <p className="mt-4 text-blue-600">Loading appointments...</p>
+              </div>
+            ) : (
+              <>
+                <div className="bg-gradient-to-r from-blue-50 to-blue-100 border-b border-blue-200">
+                  <div className="grid grid-cols-12 gap-4 p-4 text-sm font-semibold text-blue-800">
+                    <div className="col-span-2">Time</div>
+                    <div className="col-span-3">Patient</div>
+                    <div className="col-span-3">Doctor</div>
+                    <div className="col-span-2">Status</div>
+                    <div className="col-span-2">Actions</div>
+                  </div>
+                </div>
 
-                        {openStatusDropdownIndex === index && (
-                          <div
-                            className={`absolute ${
-                              index >= paginatedAppointments.length - 2
-                                ? "bottom-full mb-2"
-                                : "top-full mt-2"
-                            } left-0 bg-white rounded-2xl shadow-lg border border-gray-100 z-[1000] w-40`}
-                          >
-                            {statusOptions.map((s) => (
-                              <button
-                                key={s}
-                                className="w-full text-left px-4 py-2 hover:bg-gray-100 text-sm"
-                                onClick={() => updateStatus(globalIndex, s)}
-                              >
-                                {s}
-                              </button>
-                            ))}
-                            <button
-                              className="w-full text-left px-4 py-2 text-gray-500 text-sm hover:bg-gray-100"
-                              onClick={() => setOpenStatusDropdownIndex(null)}
-                            >
-                              Cancel
-                            </button>
+                <div className="divide-y divide-blue-50" ref={dropdownRef}>
+                  {paginatedAppointments.map((appt, index) => {
+                    const globalIndex = appointments.findIndex(
+                      (a) => a.id === appt.id
+                    );
+                    return (
+                      <div
+                        key={appt.id}
+                        className="grid grid-cols-12 gap-4 p-4 hover:bg-blue-50/50 transition-all duration-200 items-center text-sm"
+                      >
+                        <div className="col-span-2">
+                          <div className="font-bold text-gray-800">{appt.time}</div>
+                          <div className="text-xs text-blue-600">{appt.date?.split('T')[0]}</div>
+                        </div>
+                        
+                        <div className="col-span-3">
+                          <div className="font-medium text-gray-800">{appt.patient_display}</div>
+                          {appt.phone_number && (
+                            <div className="text-xs text-blue-600">{appt.phone_number}</div>
+                          )}
+                        </div>
+                        
+                        <div className="col-span-3">
+                          <div className="flex items-center gap-2">
+                            <div className="p-1 bg-blue-100 rounded-lg">
+                              <Stethoscope className="text-blue-600" size={14} />
+                            </div>
+                            <span className="font-medium text-gray-800">{appt.doctor_display}</span>
                           </div>
-                        )}
-                      </td>
-                      <td className="p-3">
-                        {appt.status === "Checked In" ? (
-                          editingNoteIndex === index ? (
-                            <div className="flex flex-col gap-2">
-                              <textarea
-                                value={noteText}
-                                onChange={(e) => setNoteText(e.target.value)}
-                                className="w-full p-2 border rounded-xl text-sm focus:ring-2 focus:ring-blue-400"
-                                placeholder="Add notes about this appointment..."
-                              />
-                              <div className="flex gap-2">
-                                <button
-                                  onClick={() => handleSaveNote(globalIndex)}
-                                  className="flex items-center gap-1 px-3 py-1.5 bg-green-500 text-white rounded-lg text-xs font-medium hover:bg-green-600"
-                                >
-                                  <Save size={14} /> Save
-                                </button>
-                                <button
-                                  onClick={() => setEditingNoteIndex(null)}
-                                  className="flex items-center gap-1 px-3 py-1.5 bg-gray-300 text-gray-700 rounded-lg text-xs font-medium hover:bg-gray-400"
-                                >
-                                  <X size={14} /> Cancel
-                                </button>
+                        </div>
+                        
+                        <div className="col-span-2 relative">
+                          <button
+                            onClick={() =>
+                              setOpenStatusDropdownIndex(
+                                openStatusDropdownIndex === index ? null : index
+                              )
+                            }
+                            className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-semibold transition-all ${statusColors[appt.status]}`}
+                          >
+                            {getStatusIcon(appt.status)} 
+                            {appt.status}
+                            <ChevronDown size={14} />
+                          </button>
+
+                          {openStatusDropdownIndex === index && (
+                            <div className="absolute z-30 mt-1 bg-white rounded-lg shadow-xl border border-blue-200 w-40">
+                              <div className="p-1">
+                                <div className="text-xs text-gray-500 px-2 py-1.5">Change Status</div>
+                                {statusOptions
+                                  .filter(s => s !== appt.status) // Don't show current status as option
+                                  .map((s) => (
+                                    <button
+                                      key={s}
+                                      className="w-full text-left px-3 py-2 hover:bg-blue-50 rounded text-xs flex items-center gap-2 transition-all"
+                                      onClick={() => updateStatus(globalIndex, s)}
+                                    >
+                                      <div className={`w-2 h-2 rounded-full ${s === "Awaiting" ? "bg-blue-500" : s === "Checked In" ? "bg-green-500" : "bg-red-500"}`}></div>
+                                      {s}
+                                    </button>
+                                  ))}
+                                <div className="border-t border-blue-100 mt-1 pt-1">
+                                  <button
+                                    className="w-full text-left px-3 py-2 hover:bg-blue-50 rounded text-xs text-gray-500"
+                                    onClick={() => setOpenStatusDropdownIndex(null)}
+                                  >
+                                    Cancel
+                                  </button>
+                                </div>
                               </div>
                             </div>
+                          )}
+                        </div>
+                        
+                        <div className="col-span-2">
+                          {appt.status === "Checked In" ? (
+                            editingNoteIndex === index ? (
+                              <div className="flex flex-col gap-2">
+                                <textarea
+                                  value={noteText}
+                                  onChange={(e) => setNoteText(e.target.value)}
+                                  className="w-full p-2 border border-blue-200 rounded-lg text-xs focus:ring-1 focus:ring-blue-400 focus:border-blue-400 bg-white transition-all"
+                                  placeholder="Add notes..."
+                                  rows="2"
+                                />
+                                <div className="flex gap-1">
+                                  <button
+                                    onClick={() => handleSaveNote(globalIndex)}
+                                    className="flex-1 flex items-center justify-center gap-1 px-2 py-1.5 bg-gradient-to-r from-green-500 to-green-600 text-white rounded text-xs font-medium hover:from-green-600 hover:to-green-700 transition-all"
+                                  >
+                                    <Save size={12} /> Save
+                                  </button>
+                                  <button
+                                    onClick={() => setEditingNoteIndex(null)}
+                                    className="flex-1 flex items-center justify-center gap-1 px-2 py-1.5 bg-gray-100 text-gray-700 rounded text-xs font-medium hover:bg-gray-200 transition-all"
+                                  >
+                                    <X size={12} /> Cancel
+                                  </button>
+                                </div>
+                              </div>
+                            ) : (
+                              <button
+                                onClick={() => {
+                                  setEditingNoteIndex(index);
+                                  setNoteText(appt.notes || "");
+                                }}
+                                className="flex items-center gap-1 px-3 py-2 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white rounded-lg text-xs font-medium transition-all"
+                              >
+                                <FileText size={14} /> Add Notes
+                              </button>
+                            )
                           ) : (
                             <button
-                              onClick={() => {
-                                setEditingNoteIndex(index);
-                                setNoteText(appt.notes || "");
-                              }}
-                              className="flex items-center gap-2 px-3 py-1.5 bg-green-500 hover:bg-green-600 text-white rounded-xl text-xs font-medium transition-all"
+                              className="flex items-center gap-1 px-3 py-2 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white rounded-lg text-xs font-medium transition-all"
+                              onClick={() => handleReschedule(appt)}
                             >
-                              <FileText size={14} /> Add Notes
+                              <CalendarClock size={14} /> Reschedule
                             </button>
-                          )
-                        ) : (
-                          <button
-                            className="flex items-center gap-2 px-3 py-1.5 bg-blue-500 hover:bg-blue-600 text-white rounded-xl text-xs font-medium transition-all"
-                            onClick={() => alert(`Reschedule appointment for ${appt.patient}`)}
-                          >
-                            <CalendarClock size={14} /> Reschedule
-                          </button>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
 
-                {paginatedAppointments.length === 0 && (
-                  <tr>
-                    <td colSpan="5" className="text-center py-6 text-gray-500">
-                      No appointments found for this date
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
+                  {paginatedAppointments.length === 0 && (
+                    <div className="p-12 text-center">
+                      <div className="p-4 bg-blue-50 border border-blue-200 rounded-2xl inline-block mb-4">
+                        <AlertCircle className="text-blue-500" size={48} />
+                      </div>
+                      <h3 className="text-xl font-bold text-gray-800 mb-2">No Appointments Found</h3>
+                      <p className="text-gray-600 mb-6">
+                        {filterStatus || filterDoctor || search 
+                          ? "Try changing your filters or search term"
+                          : "No appointments scheduled for this date"}
+                      </p>
+                      {!filterStatus && !filterDoctor && !search && (
+                        <button
+                          onClick={() => navigate("/appointments/add")}
+                          className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-300"
+                        >
+                          <Plus size={20} /> Schedule First Appointment
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
           </div>
-        </PaginatedTable>
+
+          {/* Pagination */}
+          {filteredAppointments.length > 0 && (
+            <PaginatedTable
+              currentPage={currentPage}
+              setCurrentPage={setCurrentPage}
+              itemsPerPage={itemsPerPage}
+              totalItems={filteredAppointments.length}
+            />
+          )}
+
+          {/* Summary Footer */}
+          <div className="mt-8 p-4 bg-gradient-to-r from-blue-50 to-blue-100 rounded-xl border border-blue-200">
+            <div className="flex items-center justify-between text-xs text-blue-800">
+              <div>
+                <span className="font-semibold">{filteredAppointments.length}</span> appointments found
+                {filterDoctor && ` for Dr. ${filterDoctor}`}
+                {filterStatus && ` with status: ${filterStatus}`}
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-1">
+                  <div className="w-2 h-2 rounded-full bg-blue-500"></div>
+                  <span>Awaiting</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <div className="w-2 h-2 rounded-full bg-green-500"></div>
+                  <span>Checked In</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <div className="w-2 h-2 rounded-full bg-red-500"></div>
+                  <span>Cancelled</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
-
-    <AddAppointmentModal
-  isOpen={isAddModalOpen}
-  onClose={() => setIsAddModalOpen(false)}
-  onSave={async (newAppt) => {
-    try {
-      const res = await fetch("/api/appointments/", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          // Add auth token if needed
-          // "Authorization": `Bearer ${localStorage.getItem("token")}`,
-        },
-        body: JSON.stringify(newAppt),
-      });
-
-      if (!res.ok) {
-        const text = await res.text();
-        console.error("Backend error:", text);
-        alert(`Failed to save appointment. Backend says: ${text}`);
-        return;
-      }
-
-      const savedAppt = await res.json();
-      setAppointments((prev) => [...prev, savedAppt]);
-      setIsAddModalOpen(false);
-    } catch (error) {
-      console.error("Network or other error:", error);
-      alert("Failed to save appointment. Please try again.");
-    }
-  }}
-  doctorOptions={doctorOptions}
-  patientOptions={appointments.map((a) => a.patient)} // you can pass unique patients if needed
-/>
     </div>
   );
 };

@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
-import { Bell, Search, LogOut } from "lucide-react";
+import { Bell, Search, LogOut, User, Settings, HelpCircle } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 const Header = ({ isCollapsed, onLogout }) => {
@@ -19,23 +19,22 @@ const Header = ({ isCollapsed, onLogout }) => {
 
     switch (role) {
       case "doctor":
-        prefix = "Dr_";
+        prefix = "Dr.";
         roleDisplay = "Doctor";
         break;
       case "nurse":
-        prefix = "Nrs_";
+        prefix = "Nrs.";
         roleDisplay = "Nurse";
         break;
       case "admin":
-        prefix = "Admin_";
-        roleDisplay = "Admin";
+        prefix = "Admin";
+        roleDisplay = "Administrator";
         break;
       default:
-        prefix = "";
-        roleDisplay = role.charAt(0).toUpperCase() + role.slice(1);
+        roleDisplay = role;
     }
 
-    setDisplayName(`${prefix}${firstName} ${lastName}`);
+    setDisplayName(`${prefix} ${firstName} ${lastName}`.trim());
     setUserRole(roleDisplay);
   }, []);
 
@@ -53,64 +52,141 @@ const Header = ({ isCollapsed, onLogout }) => {
     setShowMenu(false);
     if (onLogout) onLogout();
     localStorage.clear();
-    navigate("/admin"); // redirect to login
+    navigate("/login");
+  };
+
+  const handleSettings = () => {
+    setShowMenu(false);
+    navigate("/settings");
+  };
+
+  const handleHelp = () => {
+    setShowMenu(false);
+    // Navigate to help page or open help modal
+    console.log("Help clicked");
   };
 
   return (
     <header
-      className={`fixed top-0 h-20 bg-white flex items-center justify-between px-8 shadow-sm z-50 transition-all duration-300 ${
-        isCollapsed
-          ? "left-20 w-[calc(100%-5rem)]"
-          : "left-64 w-[calc(100%-16rem)]"
-      }`}
+      className={`fixed top-0 h-20 z-40 transition-all duration-300
+        ${
+          isCollapsed
+            ? "left-16 w-[calc(100%-4rem)]"
+            : "left-56 w-[calc(100%-14rem)]"
+        }
+        bg-gradient-to-r from-blue-800 to-blue-900 text-white
+        flex items-center justify-between px-8 border-b border-blue-700`}
     >
-      {/* Left */}
-      <div className="flex items-center gap-4">
-        <h1 className="text-2xl font-bold text-gray-800 tracking-tight">
-          Smile Care Center Dashboard
-        </h1>
+      {/* Left Section */}
+      <div className="flex items-center gap-6">
+        {/* Welcome Message */}
+        <div>
+          <h1 className="text-xl font-bold text-white">Welcome back!</h1>
+          <p className="text-sm text-blue-200">
+            {new Date().toLocaleDateString('en-US', { 
+              weekday: 'long', 
+              year: 'numeric', 
+              month: 'long', 
+              day: 'numeric' 
+            })}
+          </p>
+        </div>
 
-        <div className="flex items-center bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 w-96 shadow-sm">
-          <Search className="w-5 h-5 text-gray-400 mr-2" />
+        {/* Search Bar */}
+        <div className="hidden lg:flex items-center bg-white/10 backdrop-blur-sm rounded-xl px-4 py-2.5 w-96 border border-blue-600">
+          <Search className="w-5 h-5 text-blue-300 mr-3" />
           <input
             type="text"
-            placeholder="Search anything..."
-            className="bg-transparent outline-none flex-1 text-sm text-gray-700"
+            placeholder="Search patients, appointments, doctors..."
+            className="bg-transparent outline-none flex-1 text-sm text-white placeholder-blue-300"
           />
         </div>
       </div>
 
-      {/* Right */}
+      {/* Right Section */}
       <div className="flex items-center gap-4">
-        <button className="p-2 rounded-full hover:bg-gray-100">
-          <Bell className="w-5 h-5 text-gray-700" />
+        {/* Notifications */}
+        <button className="relative p-2.5 rounded-lg hover:bg-white/10 transition-colors group">
+          <Bell className="w-5 h-5 text-blue-200" />
+          <span className="absolute top-2 right-2 w-2 h-2 bg-gradient-to-r from-red-500 to-red-600 rounded-full"></span>
+          <div className="absolute top-full right-0 mt-2 px-3 py-1.5 bg-blue-800 text-white text-xs rounded-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 whitespace-nowrap z-50 border border-blue-700">
+            Notifications
+            <div className="absolute bottom-full right-3 -mb-1 w-2 h-2 bg-blue-800 transform rotate-45 border-r border-b border-blue-700"></div>
+          </div>
         </button>
 
+        {/* Help */}
+        <button 
+          onClick={handleHelp}
+          className="p-2.5 rounded-lg hover:bg-white/10 transition-colors group relative"
+        >
+          <HelpCircle className="w-5 h-5 text-blue-200" />
+          <div className="absolute top-full right-0 mt-2 px-3 py-1.5 bg-blue-800 text-white text-xs rounded-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 whitespace-nowrap z-50 border border-blue-700">
+            Help & Support
+            <div className="absolute bottom-full right-3 -mb-1 w-2 h-2 bg-blue-800 transform rotate-45 border-r border-b border-blue-700"></div>
+          </div>
+        </button>
+
+        {/* User Profile */}
         <div className="relative" ref={menuRef}>
           <button
             onClick={() => setShowMenu((prev) => !prev)}
-            className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-100"
+            className="flex items-center gap-3 px-4 py-2 rounded-xl hover:bg-white/10 transition-colors"
           >
-            <img
-              src="/user.png"
-              alt="User"
-              className="w-10 h-10 rounded-full object-cover"
-            />
-            <div className="text-left">
-              <p className="font-semibold text-gray-800">{displayName}</p>
-              <p className="text-gray-500 text-sm">{userRole}</p>
+            <div className="w-12 h-12 rounded-full bg-gradient-to-r from-blue-500 to-blue-600 flex items-center justify-center shadow-lg">
+              <User className="w-6 h-6 text-white" />
             </div>
+            <div className="text-left">
+              <p className="text-sm font-bold text-white">{displayName}</p>
+              <p className="text-xs text-blue-300">{userRole}</p>
+            </div>
+            <div className={`w-2 h-2 rounded-full ${showMenu ? 'bg-green-500' : 'bg-blue-400'}`}></div>
           </button>
 
+          {/* Dropdown Menu */}
           {showMenu && (
-            <div className="absolute right-0 mt-2 w-40 bg-white border border-gray-200 rounded-lg shadow-lg">
-              <button
-                onClick={handleLogout}
-                className="w-full flex items-center gap-2 px-4 py-2 text-gray-700 hover:bg-gray-100"
-              >
-                <LogOut className="w-4 h-4" />
-                <span>Log Out</span>
-              </button>
+            <div className="absolute right-0 mt-2 w-64 bg-gradient-to-b from-blue-800 to-blue-900 rounded-xl shadow-2xl border border-blue-700 overflow-hidden z-50">
+              {/* User Info */}
+              <div className="p-4 border-b border-blue-700">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-gradient-to-r from-blue-500 to-blue-600 flex items-center justify-center">
+                    <User className="w-5 h-5 text-white" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-bold text-white">{displayName}</p>
+                    <p className="text-xs text-blue-300">{userRole}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Menu Items */}
+              <div className="py-2">
+                <button
+                  onClick={handleSettings}
+                  className="w-full flex items-center gap-3 px-4 py-3 text-sm text-blue-200 hover:bg-blue-700 transition-colors"
+                >
+                  <Settings className="w-4 h-4" />
+                  Settings
+                </button>
+                <button
+                  onClick={handleHelp}
+                  className="w-full flex items-center gap-3 px-4 py-3 text-sm text-blue-200 hover:bg-blue-700 transition-colors"
+                >
+                  <HelpCircle className="w-4 h-4" />
+                  Help & Support
+                </button>
+              </div>
+
+              {/* Logout */}
+              <div className="border-t border-blue-700">
+                <button
+                  onClick={handleLogout}
+                  className="w-full flex items-center gap-3 px-4 py-3 text-sm text-red-300 hover:bg-red-900/30 transition-colors"
+                >
+                  <LogOut className="w-4 h-4" />
+                  Log out
+                </button>
+              </div>
             </div>
           )}
         </div>

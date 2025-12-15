@@ -1,33 +1,55 @@
-from django.urls import path
+from django.urls import path, include
+from rest_framework.routers import DefaultRouter
 from .views import (
     ClinicUserRegisterView,
     PatientRegisterView,
     StaffTokenObtainPairView,
     PatientTokenObtainPairView,
-    ClinicPatientCreateView,
     ClinicPatientListView,
-    AppointmentListCreateView,
-    ClinicPatientDetailView,
-    DoctorListView,  # <-- import the new view
+    ClinicPatientCreateView,
+    ClinicPatientRetrieveUpdateView,
+    DoctorListView,
+    AppointmentViewSet,
+    PrescriptionCreateView,
+    # Add these imports
+    get_available_time_slots,
+    check_time_slot_availability,
+    get_doctor_availability,
 )
 
-urlpatterns = [
-    # ---------------- Registration ----------------
-    path('register/staff/', ClinicUserRegisterView.as_view(), name='register-staff'),
-    path('register/patient/', PatientRegisterView.as_view(), name='register-patient'),
+# ---------------- Router for appointments ----------------
+router = DefaultRouter()
+router.register(r"appointments", AppointmentViewSet, basename="appointments")
 
-    # ---------------- Login ----------------
-    path('login/staff/', StaffTokenObtainPairView.as_view(), name='login-staff'),
-    path('login/patient/', PatientTokenObtainPairView.as_view(), name='login-patient'),
+urlpatterns = [
+    # ---------------- Staff Registration & Login ----------------
+    path("register/staff/", ClinicUserRegisterView.as_view(), name="register-staff"),
+    path("login/staff/", StaffTokenObtainPairView.as_view(), name="login-staff"),
+
+    # ---------------- Patient Registration & Login ----------------
+    path("register/patient/", PatientRegisterView.as_view(), name="register-patient"),
+    path("login/patient/", PatientTokenObtainPairView.as_view(), name="login-patient"),
 
     # ---------------- Clinic Patients ----------------
     path("clinic-patients/", ClinicPatientListView.as_view(), name="clinic-patient-list"),
     path("clinic-patient/add/", ClinicPatientCreateView.as_view(), name="clinic-patient-add"),
-    path("clinic-patient/<str:patient_id>/", ClinicPatientDetailView.as_view(), name="clinic-patient-detail"),
-
-    # ---------------- Appointments ----------------
-    path("appointments/", AppointmentListCreateView.as_view(), name="appointments-list-create"),
+    path(
+        "clinic-patient/<str:patient_id>/",
+        ClinicPatientRetrieveUpdateView.as_view(),
+        name="clinic-patient-detail",
+    ),
 
     # ---------------- Doctors ----------------
     path("staff/", DoctorListView.as_view(), name="doctor-list"),
+
+    # ---------------- Time Slot Management ----------------
+    path("time-slots/available/", get_available_time_slots, name="available-time-slots"),
+    path("time-slots/check/", check_time_slot_availability, name="check-time-slot"),
+    path("doctors/<int:doctor_id>/availability/", get_doctor_availability, name="doctor-availability"),
+
+    # ---------------- Appointments via router ----------------
+    path("", include(router.urls)),
+
+    # ---------------- Prescriptions ----------------
+    path("prescriptions/", PrescriptionCreateView.as_view(), name="prescription-create"),
 ]

@@ -2,7 +2,6 @@ import React, { useContext, useState, useEffect } from "react";
 import { Routes, Route, Navigate, useNavigate } from "react-router-dom";
 import { UserContext } from "./context/UserContext";
 
-// Pages
 import Home from "./pages/Home";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
@@ -15,13 +14,12 @@ import Loyalty from "./pages/Loyalty";
 import Profile from "./pages/Profile";
 import MyBookings from "./pages/MyBookings";
 import MedicalRecord from "./components/Medicalrecord";
-
-// Components
+import Stock from './components/Stock';
+import AddPatientPage from "./components/AddPatientPage";
 import Navbar from "./components/Navbar";
 import Sidebar from "./components/Sidebar";
 import Header from "./components/Header";
-
-// Admin Dashboard Components
+import AddAppointmentPage from "./components/AddAppointmentModal";
 import Dashboard from "./Dashboard";
 import AllPatients from "./AllPatients";
 import Patient from "./Patient";
@@ -37,7 +35,6 @@ export default function App() {
   const [loadingUser, setLoadingUser] = useState(true);
   const navigate = useNavigate();
 
-  // Restore user from localStorage
   useEffect(() => {
     const firstName = localStorage.getItem("user_first_name");
     const lastName = localStorage.getItem("user_last_name");
@@ -77,7 +74,9 @@ export default function App() {
           <main className="p-6 mt-20 bg-gray-100 min-h-screen">
             <Routes>
               <Route path="/" element={<Dashboard />} />
+              <Route path="/stock" element={<Stock />} />
               <Route path="/patients" element={<AllPatients />} />
+              <Route path="/patients/add" element={<AddPatientPage />} />
               <Route path="/patients/:id" element={<Patient />} />
 
               {/* Medical records — ONLY doctor */}
@@ -89,6 +88,8 @@ export default function App() {
               />
 
               <Route path="/appointments" element={<Appointments />} />
+                      <Route path="/appointments/add" element={<AddAppointmentPage />} /> {/* Add this route */}
+
               <Route path="/doctors" element={<Doctors />} />
               <Route path="/billing" element={<Billing />} />
               <Route path="/billing/create" element={<CreateInvoice />} />

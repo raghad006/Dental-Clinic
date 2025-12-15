@@ -5,12 +5,10 @@ import axios from "axios";
 export default function Register({ isStaff = false }) {
   const navigate = useNavigate();
 
-  // ---- State for staff ----
   const [username, setUsername] = useState("");
   const [role, setRole] = useState("nurse");
   const [registrationCode, setRegistrationCode] = useState("");
 
-  // ---- State for patient ----
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [dateOfBirth, setDateOfBirth] = useState("");
@@ -28,27 +26,22 @@ export default function Register({ isStaff = false }) {
       let payload = {};
 
       if (isStaff) {
-        // Staff registration
         url = "http://127.0.0.1:8000/api/register/staff/";
         payload = { username, email, password, role, registration_code: registrationCode };
       } else {
-        // Patient registration
         url = "http://127.0.0.1:8000/api/register/patient/";
         payload = { name, email, password, phone, date_of_birth: dateOfBirth, address };
       }
 
       const response = await axios.post(url, payload);
 
-      // Backend may return the created object
       alert(isStaff ? "Staff registered successfully!" : "Patient registered successfully!");
 
-      // Redirect after successful registration
       navigate(isStaff ? "/login" : "/login");
     } catch (error) {
       console.error(error);
 
       if (error.response && error.response.data) {
-        // Convert backend error object into readable message
         const data = error.response.data;
         let msg = "";
 
