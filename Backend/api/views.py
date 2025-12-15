@@ -128,7 +128,6 @@ def combine_date_time(date_field, time_value):
     return timezone.make_aware(dt_obj)
 
 
-# ================= APPOINTMENT VIEWS =================
 
 class AppointmentListCreateView(generics.ListCreateAPIView):
     queryset = Appointment.objects.all()
@@ -162,27 +161,36 @@ class AppointmentViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         qs = Appointment.objects.exclude(status="Cancelled")
+
         patient_id = self.request.query_params.get("patient_id")
         status_filter = self.request.query_params.get("status")
 
         if patient_id:
             qs = qs.filter(patient__patient_id=patient_id)
 
+        return qs
+    
+    def list(self, request, *args, **kwargs):
+        queryset = self.get_queryset()
+
         appointments = []
-        for appt in qs:
-            # FIX: handle both float and datetime.time
+        for appt in queryset:
             appt.appointment_datetime = combine_date_time(appt.date, appt.time)
             appointments.append(appt)
 
         now = timezone.now()
+        status_filter = request.query_params.get("status")
 
         if status_filter == "upcoming":
             appointments = [a for a in appointments if a.appointment_datetime > now]
         elif status_filter == "previous":
             appointments = [a for a in appointments if a.appointment_datetime < now]
 
-        # Sort by appointment_datetime
-        return sorted(appointments, key=lambda a: a.appointment_datetime)
+        appointments = sorted(appointments, key=lambda a: a.appointment_datetime)
+
+        serializer = self.get_serializer(appointments, many=True)
+        return Response(serializer.data)
+
 
     def partial_update(self, request, *args, **kwargs):
         print("PATCH request body:", request.data)

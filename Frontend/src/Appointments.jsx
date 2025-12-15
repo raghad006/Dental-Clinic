@@ -13,13 +13,56 @@ import {
   Save,
   X,
   CalendarDays,
-  Users,
   Stethoscope,
-  Check,
   AlertCircle,
 } from "lucide-react";
 import CalendarDropdown from "./components/CalendarDropdown";
 import PaginatedTable from "./components/PaginatedTable";
+
+const API_BASE_URL = "http://127.0.0.1:8000/api";
+
+const getAuthHeaders = () => {
+  const token = localStorage.getItem("access_token");
+  if (!token) {
+    console.warn("No access token found, redirecting to login");
+    window.location.href = "/login";
+    return {};
+  }
+  
+  return {
+    "Content-Type": "application/json",
+    Authorization: `Bearer ${token}`,
+  };
+};
+
+const authFetch = async (url, options = {}) => {
+  const headers = getAuthHeaders();
+  if (Object.keys(headers).length === 0) {
+    return null; // No token, will redirect in getAuthHeaders
+  }
+  
+  const response = await fetch(url, {
+    ...options,
+    headers: {
+      ...headers,
+      ...options.headers,
+    },
+  });
+
+  // Handle 401 Unauthorized
+  if (response.status === 401) {
+    console.warn("Token expired or invalid, redirecting to login");
+    localStorage.removeItem("access_token");
+    localStorage.removeItem("refresh_token");
+    localStorage.removeItem("user_role");
+    localStorage.removeItem("user_first_name");
+    localStorage.removeItem("user_last_name");
+    window.location.href = "/login";
+    return null;
+  }
+
+  return response;
+};
 
 const statusOptions = ["Awaiting", "Checked In", "Cancelled"];
 const statusColors = {
@@ -66,36 +109,56 @@ const Appointments = () => {
   useEffect(() => localStorage.setItem("appointmentsPage", currentPage), [currentPage]);
   useEffect(() => localStorage.setItem("appointmentsDate", selectedDate), [selectedDate]);
 
+  // Check authentication on component mount
+  useEffect(() => {
+    const token = localStorage.getItem("access_token");
+    if (!token) {
+      navigate("/login");
+    }
+  }, [navigate]);
+
   // Fetch doctors & appointments
   useEffect(() => {
-    const fetchDoctors = async () => {
-      try {
-        const res = await fetch("http://127.0.0.1:8000/api/staff/");
-        const data = await res.json();
-        const doctorNames = data.map((d) => d.full_display_name);
-        setDoctorOptions(doctorNames);
-      } catch (err) {
-        console.error("Failed to fetch doctors:", err);
+    const fetchData = async () => {
+      const token = localStorage.getItem("access_token");
+      if (!token) {
+        navigate("/login");
+        return;
       }
+
+      const fetchDoctors = async () => {
+        try {
+          const res = await authFetch(`${API_BASE_URL}/staff/`);
+          if (!res) return; // authFetch handles redirection
+          const data = await res.json();
+          const doctorNames = data.map((d) => d.full_display_name);
+          setDoctorOptions(doctorNames);
+        } catch (err) {
+          console.error("Failed to fetch doctors:", err);
+        }
+      };
+
+      const fetchAppointments = async () => {
+        setLoading(true);
+        try {
+          const res = await authFetch(`${API_BASE_URL}/appointments/`);
+          if (!res) return; // authFetch handles redirection
+          if (!res.ok) throw new Error("Failed to fetch appointments");
+          const data = await res.json();
+          setAppointments(data);
+        } catch (err) {
+          console.error(err);
+        } finally {
+          setLoading(false);
+        }
+      };
+
+      await fetchDoctors();
+      await fetchAppointments();
     };
 
-    const fetchAppointments = async () => {
-      setLoading(true);
-      try {
-        const res = await fetch("http://127.0.0.1:8000/api/appointments/");
-        if (!res.ok) throw new Error("Failed to fetch appointments");
-        const data = await res.json();
-        setAppointments(data);
-      } catch (err) {
-        console.error(err);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchDoctors();
-    fetchAppointments();
-  }, []);
+    fetchData();
+  }, [navigate]);
 
   // Close dropdown if click outside
   useEffect(() => {
@@ -113,11 +176,11 @@ const Appointments = () => {
   const updateStatus = async (globalIndex, newStatus) => {
     const appt = appointments[globalIndex];
     try {
-      const res = await fetch(`http://127.0.0.1:8000/api/appointments/${appt.id}/`, {
+      const res = await authFetch(`${API_BASE_URL}/appointments/${appt.id}/`, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status: newStatus }),
       });
+      if (!res) return; // authFetch handles redirection
       if (!res.ok) throw new Error("Failed to update status");
       const updatedAppt = await res.json();
 
@@ -155,11 +218,11 @@ const Appointments = () => {
   const handleSaveNote = async (index) => {
     const appt = appointments[index];
     try {
-      const res = await fetch(`http://127.0.0.1:8000/api/appointments/${appt.id}/`, {
+      const res = await authFetch(`${API_BASE_URL}/appointments/${appt.id}/`, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ notes: noteText }),
       });
+      if (!res) return; // authFetch handles redirection
       if (!res.ok) throw new Error("Failed to save note");
       const updatedAppt = await res.json();
 
@@ -186,6 +249,16 @@ const Appointments = () => {
     });
   };
 
+  // Handle logout
+  const handleLogout = () => {
+    localStorage.removeItem("access_token");
+    localStorage.removeItem("refresh_token");
+    localStorage.removeItem("user_role");
+    localStorage.removeItem("user_first_name");
+    localStorage.removeItem("user_last_name");
+    navigate("/login");
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-white p-4 md:p-6">
       <div className="max-w-7xl mx-auto">
@@ -205,12 +278,14 @@ const Appointments = () => {
                 </p>
               </div>
             </div>
-            <button
-              onClick={() => navigate("/appointments/add")}
-              className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-300"
-            >
-              <Plus size={20} /> New Appointment
-            </button>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => navigate("/appointments/add")}
+                className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-300"
+              >
+                <Plus size={20} /> New Appointment
+              </button>
+            </div>
           </div>
 
           {/* Stats Cards */}
@@ -289,7 +364,7 @@ const Appointments = () => {
             />
           </div>
 
-          {/* Filters Section - Made Smaller */}
+          {/* Filters Section */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
             {/* Search Patient */}
             <div className="bg-white rounded-xl p-4 border border-blue-100 shadow-sm">
@@ -427,7 +502,10 @@ const Appointments = () => {
                   </button>
                 )}
                 <button
-                  onClick={() => window.location.reload()}
+                  onClick={() => {
+                    setLoading(true);
+                    window.location.reload();
+                  }}
                   className="flex-1 border border-blue-200 text-blue-700 py-2 rounded-lg hover:bg-blue-50 transition-all text-xs font-medium"
                 >
                   Refresh
@@ -505,7 +583,7 @@ const Appointments = () => {
                               <div className="p-1">
                                 <div className="text-xs text-gray-500 px-2 py-1.5">Change Status</div>
                                 {statusOptions
-                                  .filter(s => s !== appt.status) // Don't show current status as option
+                                  .filter(s => s !== appt.status)
                                   .map((s) => (
                                     <button
                                       key={s}

@@ -10,11 +10,7 @@ from .views import (
     ClinicPatientRetrieveUpdateView,
     DoctorListView,
     AppointmentViewSet,
-    PrescriptionCreateView,
-    # Add these imports
-    get_available_time_slots,
-    check_time_slot_availability,
-    get_doctor_availability,
+    PrescriptionCreateView,  # Add this import
 )
 
 # ---------------- Router for appointments ----------------
@@ -42,12 +38,7 @@ urlpatterns = [
     # ---------------- Doctors ----------------
     path("staff/", DoctorListView.as_view(), name="doctor-list"),
 
-    # ---------------- Time Slot Management ----------------
-    path("time-slots/available/", get_available_time_slots, name="available-time-slots"),
-    path("time-slots/check/", check_time_slot_availability, name="check-time-slot"),
-    path("doctors/<int:doctor_id>/availability/", get_doctor_availability, name="doctor-availability"),
-
-    # ---------------- Appointments via router ----------------
+    # ---------------- Appointments ----------------
     path("", include(router.urls)),
 
     # ---------------- Prescriptions ----------------

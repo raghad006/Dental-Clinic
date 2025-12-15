@@ -11,11 +11,60 @@ import {
   Cake,
   Mars,
   Venus,
+  Edit,
+  Save,
+  X,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import PaginatedTable from "./components/PaginatedTable";
 
-const AllPatients = ({ isOpen }) => {
+const API_BASE_URL = "http://127.0.0.1:8000/api";
+
+const getAuthHeaders = () => {
+  const token = localStorage.getItem("access_token");
+  if (!token) {
+    console.warn("No access token found, redirecting to login");
+    window.location.href = "/login";
+    return {};
+  }
+  
+  return {
+    "Content-Type": "application/json",
+    Authorization: `Bearer ${token}`,
+  };
+};
+
+// Helper function for authenticated fetch
+const authFetch = async (url, options = {}) => {
+  const headers = getAuthHeaders();
+  if (Object.keys(headers).length === 0) {
+    return null; // No token, will redirect in getAuthHeaders
+  }
+  
+  const response = await fetch(url, {
+    ...options,
+    headers: {
+      ...headers,
+      ...options.headers,
+    },
+  });
+
+  // Handle 401 Unauthorized
+  if (response.status === 401) {
+    console.warn("Token expired or invalid, redirecting to login");
+    localStorage.removeItem("access_token");
+    localStorage.removeItem("refresh_token");
+    localStorage.removeItem("user_role");
+    localStorage.removeItem("user_first_name");
+    localStorage.removeItem("user_last_name");
+    window.location.href = "/login";
+    return null;
+  }
+
+  return response;
+};
+
+const AllPatients = () => {
   const navigate = useNavigate();
 
   const [searchTerm, setSearchTerm] = useState("");
@@ -25,30 +74,43 @@ const AllPatients = ({ isOpen }) => {
   const [showFilterMenu, setShowFilterMenu] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [loading, setLoading] = useState(false);
-  const itemsPerPage = 8;
+  const [editingPatientId, setEditingPatientId] = useState(null);
+  const [editForm, setEditForm] = useState({});
+  const [successMessage, setSuccessMessage] = useState("");
+  const [errorMessage, setErrorMessage] = useState("");
 
+  const itemsPerPage = 8;
   const filterDropdownRef = useRef(null);
   const sortDropdownRef = useRef(null);
 
   const [patients, setPatients] = useState([]);
 
+  // Fetch patients with authentication
   const fetchPatients = async () => {
     setLoading(true);
     try {
-      const res = await fetch("http://127.0.0.1:8000/api/clinic-patients/");
-      if (!res.ok) throw new Error("Failed to fetch patients");
-      const data = await res.json();
+      const response = await authFetch(`${API_BASE_URL}/clinic-patients/`);
+      if (!response) return; // authFetch handles redirection
+      if (!response.ok) throw new Error("Failed to fetch patients");
+      const data = await response.json();
       setPatients(data);
     } catch (err) {
-      console.error(err);
+      console.error("Error fetching patients:", err);
+      setErrorMessage("Failed to load patients. Please try again.");
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
+    // Check authentication on mount
+    const token = localStorage.getItem("access_token");
+    if (!token) {
+      navigate("/login");
+      return;
+    }
     fetchPatients();
-  }, []);
+  }, [navigate]);
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -62,6 +124,107 @@ const AllPatients = ({ isOpen }) => {
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
+
+  // Start editing a patient
+  const handleEditClick = (patient) => {
+    setEditingPatientId(patient.patient_id);
+    setEditForm({
+      name: patient.name,
+      age: patient.age,
+      gender: patient.gender,
+      phone: patient.phone || "",
+      medical_history: patient.medical_history || "",
+      allergies: patient.allergies || "",
+    });
+  };
+
+  // Cancel editing
+  const handleCancelEdit = () => {
+    setEditingPatientId(null);
+    setEditForm({});
+    setErrorMessage("");
+  };
+
+  // Update patient via PATCH
+  const handleUpdatePatient = async (patientId) => {
+    setLoading(true);
+    setErrorMessage("");
+    setSuccessMessage("");
+
+    try {
+      // Only send allowed fields
+      const updateData = {
+        name: editForm.name,
+        age: editForm.age,
+        gender: editForm.gender,
+        phone: editForm.phone,
+      };
+
+      const response = await authFetch(`${API_BASE_URL}/clinic-patient/${patientId}/`, {
+        method: "PATCH",
+        body: JSON.stringify(updateData),
+      });
+
+      if (!response) return; // authFetch handles redirection
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.detail || "Failed to update patient");
+      }
+
+      const updatedPatient = await response.json();
+      
+      // Update local state
+      setPatients(patients.map(p => 
+        p.patient_id === patientId ? { ...p, ...updatedPatient } : p
+      ));
+      
+      setSuccessMessage("Patient updated successfully!");
+      setEditingPatientId(null);
+      setEditForm({});
+
+      // Clear success message after 3 seconds
+      setTimeout(() => setSuccessMessage(""), 3000);
+
+    } catch (err) {
+      console.error("Error updating patient:", err);
+      setErrorMessage(err.message || "Failed to update patient. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Delete patient
+  const handleDeletePatient = async (patientId) => {
+    if (!window.confirm("Are you sure you want to delete this patient? This action cannot be undone.")) {
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const response = await authFetch(`${API_BASE_URL}/clinic-patient/${patientId}/`, {
+        method: "DELETE",
+      });
+
+      if (!response) return;
+
+      if (!response.ok) {
+        throw new Error("Failed to delete patient");
+      }
+
+      // Remove from local state
+      setPatients(patients.filter(p => p.patient_id !== patientId));
+      setSuccessMessage("Patient deleted successfully!");
+      
+      setTimeout(() => setSuccessMessage(""), 3000);
+
+    } catch (err) {
+      console.error("Error deleting patient:", err);
+      setErrorMessage("Failed to delete patient. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const filteredPatients = useMemo(() => {
     let data = [...patients];
@@ -93,6 +256,18 @@ const AllPatients = ({ isOpen }) => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-white p-4 md:p-6">
       <div className="max-w-7xl mx-auto">
+        {/* Success/Error Messages */}
+        {successMessage && (
+          <div className="mb-4 p-4 bg-green-100 border border-green-400 text-green-700 rounded-lg">
+            {successMessage}
+          </div>
+        )}
+        {errorMessage && (
+          <div className="mb-4 p-4 bg-red-100 border border-red-400 text-red-700 rounded-lg">
+            {errorMessage}
+          </div>
+        )}
+
         <div className="mb-8">
           <div className="flex items-center gap-4 mb-3">
             <div className="p-3 bg-gradient-to-r from-blue-500 to-blue-600 rounded-2xl shadow-lg">
@@ -125,37 +300,9 @@ const AllPatients = ({ isOpen }) => {
                   </div>
                 </div>
               </div>
-              
-              <div className="bg-gradient-to-r from-blue-50 to-blue-100 rounded-xl p-4 border border-blue-200">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-blue-600 font-medium">Male Patients</p>
-                    <p className="text-2xl font-bold text-gray-800">
-                      {patients.filter(p => p.gender === "Male").length}
-                    </p>
-                  </div>
-                  <div className="p-3 bg-blue-100 rounded-lg">
-                    <Mars className="w-5 h-5 text-blue-600" />
-                  </div>
-                </div>
-              </div>
-              
-              <div className="bg-gradient-to-r from-blue-50 to-blue-100 rounded-xl p-4 border border-blue-200">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-pink-600 font-medium">Female Patients</p>
-                    <p className="text-2xl font-bold text-gray-800">
-                      {patients.filter(p => p.gender === "Female").length}
-                    </p>
-                  </div>
-                  <div className="p-3 bg-pink-100 rounded-lg">
-                    <Venus className="w-5 h-5 text-pink-600" />
-                  </div>
-                </div>
-              </div>
-            </div>
 
-            {/* FIXED: Changed to navigate to /patients/add */}
+              </div>
+
             <button
               onClick={() => navigate("/patients/add")}
               className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 whitespace-nowrap"
@@ -295,7 +442,7 @@ const AllPatients = ({ isOpen }) => {
 
           {/* Patients Table */}
           <div className="rounded-2xl overflow-hidden border border-blue-100 mb-6">
-            {loading ? (
+            {loading && !editingPatientId ? (
               <div className="p-12 text-center">
                 <div className="inline-block w-10 h-10 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
                 <p className="mt-4 text-blue-600">Loading patients...</p>
@@ -320,50 +467,132 @@ const AllPatients = ({ isOpen }) => {
                         key={p.patient_id}
                         className="grid grid-cols-12 gap-4 p-4 hover:bg-blue-50/50 transition-all duration-200 items-center text-sm"
                       >
+                        {/* Patient ID - Read Only */}
                         <div className="col-span-2">
                           <div className="font-bold text-gray-800">{p.patient_id}</div>
                         </div>
                         
+                        {/* Name - Editable */}
                         <div className="col-span-3">
-                          <div className="flex items-center gap-2">
-                            <div className="p-1 bg-blue-100 rounded-lg">
-                              <User className="text-blue-600" size={14} />
+                          {editingPatientId === p.patient_id ? (
+                            <input
+                              type="text"
+                              className="w-full border border-blue-300 rounded px-2 py-1 text-sm"
+                              value={editForm.name}
+                              onChange={(e) => setEditForm({...editForm, name: e.target.value})}
+                            />
+                          ) : (
+                            <div className="flex items-center gap-2">
+                              <div className="p-1 bg-blue-100 rounded-lg">
+                                <User className="text-blue-600" size={14} />
+                              </div>
+                              <span className="font-medium text-gray-800">{p.name}</span>
                             </div>
-                            <span className="font-medium text-gray-800">{p.name}</span>
-                          </div>
+                          )}
                         </div>
                         
+                        {/* Age - Editable */}
                         <div className="col-span-1">
-                          <div className="flex items-center gap-1">
-                            <Cake className="w-3.5 h-3.5 text-blue-500" />
-                            <span className="font-medium text-gray-800">{p.age}</span>
-                          </div>
+                          {editingPatientId === p.patient_id ? (
+                            <input
+                              type="number"
+                              className="w-full border border-blue-300 rounded px-2 py-1 text-sm"
+                              value={editForm.age}
+                              onChange={(e) => setEditForm({...editForm, age: e.target.value})}
+                              min="0"
+                              max="150"
+                            />
+                          ) : (
+                            <div className="flex items-center gap-1">
+                              <Cake className="w-3.5 h-3.5 text-blue-500" />
+                              <span className="font-medium text-gray-800">{p.age}</span>
+                            </div>
+                          )}
                         </div>
                         
+                        {/* Gender - Editable */}
                         <div className="col-span-2">
-                          <span className={`px-3 py-1.5 rounded-full text-xs font-semibold ${
-                            p.gender === "Male" 
-                              ? "bg-blue-100 text-blue-700" 
-                              : "bg-pink-100 text-pink-700"
-                          }`}>
-                            {p.gender}
-                          </span>
+                          {editingPatientId === p.patient_id ? (
+                            <select
+                              className="w-full border border-blue-300 rounded px-2 py-1 text-sm"
+                              value={editForm.gender}
+                              onChange={(e) => setEditForm({...editForm, gender: e.target.value})}
+                            >
+                              <option value="Male">Male</option>
+                              <option value="Female">Female</option>
+                              <option value="Other">Other</option>
+                            </select>
+                          ) : (
+                            <span className={`px-3 py-1.5 rounded-full text-xs font-semibold ${
+                              p.gender === "Male" 
+                                ? "bg-blue-100 text-blue-700" 
+                                : p.gender === "Female"
+                                ? "bg-pink-100 text-pink-700"
+                                : "bg-gray-100 text-gray-700"
+                            }`}>
+                              {p.gender}
+                            </span>
+                          )}
                         </div>
                         
+                        {/* Phone - Editable */}
                         <div className="col-span-2">
-                          <div className="flex items-center gap-1">
-                            <Phone className="w-3.5 h-3.5 text-blue-500" />
-                            <span className="text-gray-700">{p.phone || "Not provided"}</span>
-                          </div>
+                          {editingPatientId === p.patient_id ? (
+                            <input
+                              type="tel"
+                              className="w-full border border-blue-300 rounded px-2 py-1 text-sm"
+                              value={editForm.phone || ""}
+                              onChange={(e) => setEditForm({...editForm, phone: e.target.value})}
+                              placeholder="Phone number"
+                            />
+                          ) : (
+                            <div className="flex items-center gap-1">
+                              <Phone className="w-3.5 h-3.5 text-blue-500" />
+                              <span className="text-gray-700">{p.phone || "Not provided"}</span>
+                            </div>
+                          )}
                         </div>
                         
+                        {/* Actions */}
                         <div className="col-span-2 text-right">
-                          <button
-                            onClick={() => navigate(`/patients/${p.patient_id}`)}
-                            className="flex items-center gap-1 px-3 py-2 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white rounded-lg text-xs font-medium transition-all shadow-sm"
-                          >
-                            <User size={12} /> View Profile
-                          </button>
+                          {editingPatientId === p.patient_id ? (
+                            <div className="flex gap-2 justify-end">
+                              <button
+                                onClick={() => handleUpdatePatient(p.patient_id)}
+                                disabled={loading}
+                                className="flex items-center gap-1 px-3 py-2 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white rounded-lg text-xs font-medium transition-all shadow-sm disabled:opacity-50"
+                              >
+                                <Save size={12} /> {loading ? "Saving..." : "Save"}
+                              </button>
+                              <button
+                                onClick={handleCancelEdit}
+                                className="flex items-center gap-1 px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-xs font-medium transition-all"
+                              >
+                                <X size={12} /> Cancel
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="flex gap-2 justify-end">
+                              <button
+                                onClick={() => handleEditClick(p)}
+                                className="flex items-center gap-1 px-3 py-2 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white rounded-lg text-xs font-medium transition-all shadow-sm"
+                              >
+                                <Edit size={12} /> Edit
+                              </button>
+                              <button
+                                onClick={() => navigate(`/patients/${p.patient_id}`)}
+                                className="flex items-center gap-1 px-3 py-2 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white rounded-lg text-xs font-medium transition-all shadow-sm"
+                              >
+                                <User size={12} /> View
+                              </button>
+                              <button
+                                onClick={() => handleDeletePatient(p.patient_id)}
+                                className="flex items-center gap-1 px-3 py-2 bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white rounded-lg text-xs font-medium transition-all shadow-sm"
+                              >
+                                <X size={12} /> Delete
+                              </button>
+                            </div>
+                          )}
                         </div>
                       </div>
                     ))
