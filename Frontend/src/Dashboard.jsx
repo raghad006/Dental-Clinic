@@ -82,30 +82,18 @@ const Dashboard = () => {
       setLoadingStock(true);
       try {
         // Note: You need to create this endpoint or use your existing one
-        const res = await fetch(`${API_BASE}/stock/`, {
+        const res = await fetch(`${API_BASE}/stock-items/`, {
           headers: authHeaders(),
         });
         if (res.ok) {
           const data = await res.json();
           setStock(data);
         } else {
-          // Fallback mock data if endpoint doesn't exist
-          setStock([
-            { id: 1, name: "Dental Anesthetic", category: "Medication", quantity: 3, threshold: 10 },
-            { id: 2, name: "Disposable Gloves", category: "Supplies", quantity: 8, threshold: 20 },
-            { id: 3, name: "Face Masks", category: "PPE", quantity: 12, threshold: 15 },
-            { id: 4, name: "Sterile Syringes", category: "Equipment", quantity: 2, threshold: 5 },
-          ]);
+          const data = await res.json();
+          setStock(data);
         }
       } catch (err) {
         console.error("Error fetching stock:", err);
-        // Fallback mock data
-        setStock([
-          { id: 1, name: "Dental Anesthetic", category: "Medication", quantity: 3, threshold: 10 },
-          { id: 2, name: "Disposable Gloves", category: "Supplies", quantity: 8, threshold: 20 },
-          { id: 3, name: "Face Masks", category: "PPE", quantity: 12, threshold: 15 },
-          { id: 4, name: "Sterile Syringes", category: "Equipment", quantity: 2, threshold: 5 },
-        ]);
       } finally {
         setLoadingStock(false);
       }
@@ -154,7 +142,11 @@ const Dashboard = () => {
   };
 
   // Get critical stock items (stock ≤ 5)
-  const criticalStockItems = stock.filter(item => item.quantity <= 5);
+const criticalStockItems = stock.filter(item => {
+  // Use item.threshold if exists, otherwise fallback to 5
+  const threshold = item.threshold ?? 5;
+  return item.quantity <= threshold;
+});
 
   // Calculate percentages
   const calculatePercentage = (value, total) => {
@@ -459,12 +451,11 @@ const Dashboard = () => {
                     <div className="mt-3">
                       <div className="flex items-center justify-between text-sm text-gray-500 mb-1">
                         <span>Stock Level</span>
-                        <span>{item.quantity} / {item.threshold || 10}</span>
                       </div>
                       <div className="w-full bg-gray-200 rounded-full h-2">
                         <div 
                           className="bg-gradient-to-r from-red-500 to-red-600 h-2 rounded-full"
-                          style={{ width: `${(item.quantity / (item.threshold || 10)) * 100}%` }}
+                          style={{ width: `${(item.quantity / (item.threshold ?? 5)) * 100}%` }}
                         ></div>
                       </div>
                     </div>
