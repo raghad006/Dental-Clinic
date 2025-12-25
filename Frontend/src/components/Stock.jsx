@@ -76,17 +76,17 @@ const Stock = () => {
 
   const categories = [
     "Medications", "Supplies", "Equipment", 
-    "Vaccines", "Lab Equipment", "Consumables", 
-    "Personal Protective Equipment"
+    "Vaccines" , "Consumables", 
+    "Personal Protective Equipment" , "Others"
   ];
 
   const itemsByCategory = {
     Medications: [  
-      { name: "Paracetamol 500mg", unit: "mg" },
-      { name: "Amoxicillin 500mg", unit: "mg" },
-      { name: "Ibuprofen 400mg", unit: "mg" },
-      { name: "Chlorhexidine Mouthwash 0.12%", unit: "ml" },
-      { name: "Lidocaine 2% Injection", unit: "ml" },
+      { name: "Paracetamol 500mg", unit: "Packx" },
+      { name: "Amoxicillin 500mg", unit: "Pack" },
+      { name: "Ibuprofen 400mg", unit: "Pack" },
+      { name: "Chlorhexidine Mouthwash 0.12%", unit: "Pack" },
+      { name: "Lidocaine 2% Injection", unit: "Pack" },
     ],
 
     Supplies: [
@@ -107,11 +107,6 @@ const Stock = () => {
     Vaccines: [
       { name: "Hepatitis B Vaccine", unit: "ml" },
       { name: "Td Vaccine", unit: "ml" },
-    ],
-
-    LabEquipment: [
-      { name: "Dental Impression Material", unit: "g" },
-      { name: "Alginate Powder", unit: "g" },
     ],
 
     Consumables: [

@@ -6,7 +6,7 @@ class StockItem(models.Model):
         ("Supplies", "Supplies"),
         ("Equipment", "Equipment"),
         ("Vaccines", "Vaccines"),
-        ("Lab Equipment", "Lab Equipment"),
+        ("Others", "Others"),
         ("Consumables", "Consumables"),
         ("Personal Protective Equipment", "Personal Protective Equipment"),
     ]
