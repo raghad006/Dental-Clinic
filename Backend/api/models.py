@@ -2,7 +2,7 @@ from django.contrib.auth.models import AbstractUser, Group, Permission
 from django.db import models
 from django.contrib.auth.hashers import make_password
 from django.utils import timezone
-from datetime import datetime, time
+from datetime import datetime, time, timedelta
 
 # ---------------- Custom User ----------------
 class ClinicUser(AbstractUser):
@@ -49,6 +49,7 @@ class ClinicUser(AbstractUser):
     def __str__(self):
         return f"{self.full_display_name} ({self.role})"
 
+
 # ---------------- Patient (for registration) ----------------
 class Patient(models.Model):
     name = models.CharField(max_length=255)
@@ -67,6 +68,7 @@ class Patient(models.Model):
     def __str__(self):
         return self.name
 
+
 # ---------------- Clinic Patient ----------------
 class ClinicPatient(models.Model):
     patient_id = models.CharField(max_length=20, unique=True)
@@ -78,12 +80,14 @@ class ClinicPatient(models.Model):
     address = models.TextField(blank=True, null=True)
     emergency_contact = models.CharField(max_length=255, blank=True, null=True)
     blood_type = models.CharField(max_length=5, blank=True, null=True)
-    medical_history = models.JSONField(blank=True, null=True)  # Add this line
+    medical_history = models.JSONField(blank=True, null=True)
     allergies = models.TextField(blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
         return f"{self.patient_id} - {self.name}" 
+
+
 # ---------------- Appointment ----------------
 class Appointment(models.Model):
     STATUS_CHOICES = [
@@ -131,7 +135,6 @@ class Appointment(models.Model):
 
     class Meta:
         ordering = ["date", "time"]
-        # Add unique constraint to prevent double booking
         constraints = [
             models.UniqueConstraint(
                 fields=['doctor', 'date', 'time'],
@@ -142,63 +145,65 @@ class Appointment(models.Model):
 
     def __str__(self):
         return f"{self.patient.name} - {self.date} {self.time} ({self.status})"
-    
+
+    # ---------------- Class Methods ----------------
+    @staticmethod
+    def generate_time_slots(start="09:00", end="18:00", interval_minutes=30):
+        """Generate time slots between start and end in HH:MM format"""
+        slots = []
+        start_hour, start_minute = map(int, start.split(":"))
+        end_hour, end_minute = map(int, end.split(":"))
+        current = time(hour=start_hour, minute=start_minute)
+        end_time = time(hour=end_hour, minute=end_minute)
+
+        while current <= end_time:
+            slots.append(current.strftime("%H:%M"))
+            full_minutes = current.hour * 60 + current.minute + interval_minutes
+            current = time(hour=full_minutes // 60, minute=full_minutes % 60)
+        return slots
+
     @classmethod
     def get_available_time_slots(cls, doctor_id, date):
         """Get available time slots for a specific doctor on a specific date"""
-        # Get all booked slots for this doctor on this date
+        all_time_slots = cls.generate_time_slots()
+
         booked_appointments = cls.objects.filter(
             doctor_id=doctor_id,
             date=date,
             status__in=["Awaiting", "Checked In"]
         )
-        
-        # Convert TimeField to string format "HH:MM"
         booked_times = [appt.time.strftime("%H:%M") for appt in booked_appointments]
-        
-        # Define all possible time slots
-        all_time_slots = [
-            "09:00", "09:30", "10:00", "10:30",
-            "11:00", "11:30", "12:00", "12:30",
-            "13:00", "13:30", "14:00", "14:30",
-            "15:00", "15:30", "16:00", "16:30",
-        ]
-        
-        # Filter out past times for today
-        if date == timezone.now().date():
-            current_time = timezone.now().time()
-            # Convert current time to minutes for comparison
-            current_minutes = current_time.hour * 60 + current_time.minute
-            
-            all_time_slots = [
-                slot for slot in all_time_slots 
-                if (int(slot.split(':')[0]) * 60 + int(slot.split(':')[1])) > current_minutes
-            ]
-        
+
         # Remove booked slots
         available_slots = [slot for slot in all_time_slots if slot not in booked_times]
-        
+
+        # Remove past times for today
+        if date == timezone.localdate():
+            now = timezone.localtime().time()
+            available_slots = [
+                slot for slot in available_slots
+                if datetime.strptime(slot, "%H:%M").time() > now
+            ]
+
         return available_slots
-    
+
     @classmethod
     def is_time_slot_available(cls, doctor_id, date, time_str):
         """Check if a specific time slot is available"""
-        # Convert time string to time object
         try:
-            time_obj = datetime.strptime(time_str, "%H:%M").time()
+            hour, minute = map(int, time_str.split(":"))
+            time_obj = time(hour, minute)
         except ValueError:
-            # Try with seconds format
-            try:
-                time_obj = datetime.strptime(time_str, "%H:%M:%S").time()
-            except ValueError:
-                return False
-        
-        return not cls.objects.filter(
+            return False
+
+        booked_appointments = cls.objects.filter(
             doctor_id=doctor_id,
             date=date,
             time=time_obj,
             status__in=["Awaiting", "Checked In"]
-        ).exists()
+        )
+        return not booked_appointments.exists()
+
 
 # ---------------- Prescription ----------------
 class Prescription(models.Model):
@@ -220,6 +225,7 @@ class Prescription(models.Model):
 
     def __str__(self):
         return f"Prescription for {self.patient.name} ({self.patient.patient_id})"
+
 
 # ---------------- Prescription Item ----------------
 class PrescriptionItem(models.Model):

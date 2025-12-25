@@ -48,7 +48,6 @@ export default function MedicalRecord() {
         const data = await response.json();
         setPatient({
           ...data,
-          // Add mock data for demo purposes - replace with actual API calls
           allergies: data.allergies || "No known allergies",
           medicalHistory: "Hypertension, controlled with medication",
           dentalHistory: "Previous cavity fillings in molars, routine cleanings every 6 months",

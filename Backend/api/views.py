@@ -153,91 +153,58 @@ class AppointmentListCreateView(generics.ListCreateAPIView):
         serializer.is_valid(raise_exception=True)
         self.perform_create(serializer)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
-
-
 class AppointmentViewSet(viewsets.ModelViewSet):
     serializer_class = AppointmentSerializer
-    permission_classes = [AllowAny]
+    queryset = Appointment.objects.all().order_by("date", "time")  # include all statuses
 
+    # Optional: filter by status via query param
     def get_queryset(self):
-        qs = Appointment.objects.exclude(status="Cancelled")
+        queryset = Appointment.objects.all().order_by("date", "time")
+        status_param = self.request.query_params.get("status")
+        if status_param:
+            queryset = queryset.filter(status=status_param)
+        return queryset
 
-        patient_id = self.request.query_params.get("patient_id")
-        status_filter = self.request.query_params.get("status")
-
-        if patient_id:
-            qs = qs.filter(patient__patient_id=patient_id)
-
-        return qs
-    
-    def list(self, request, *args, **kwargs):
-        queryset = self.get_queryset()
-
-        appointments = []
-        for appt in queryset:
-            appt.appointment_datetime = combine_date_time(appt.date, appt.time)
-            appointments.append(appt)
-
-        now = timezone.now()
-        status_filter = request.query_params.get("status")
-
-        if status_filter == "upcoming":
-            appointments = [a for a in appointments if a.appointment_datetime > now]
-        elif status_filter == "previous":
-            appointments = [a for a in appointments if a.appointment_datetime < now]
-
-        appointments = sorted(appointments, key=lambda a: a.appointment_datetime)
-
-        serializer = self.get_serializer(appointments, many=True)
-        return Response(serializer.data)
-
-
-    def partial_update(self, request, *args, **kwargs):
-        print("PATCH request body:", request.data)
-        return super().partial_update(request, *args, **kwargs)
-
-    # ---------- CUSTOM ACTIONS ----------
-
-    @action(detail=False, methods=["post"], url_path="add")
-    def add_appointment(self, request):
-        serializer = self.get_serializer(data=request.data)
+    @action(detail=False, methods=["get"])
+    def available_time_slots(self, request):
+        """Return available time slots for a doctor and date"""
+        serializer = TimeSlotSerializer(data=request.query_params)
         serializer.is_valid(raise_exception=True)
-        appointment = serializer.save()
+        doctor_id = serializer.validated_data["doctor_id"]
+        date = serializer.validated_data["date"]
+
+        available_slots = Appointment.get_available_time_slots(doctor_id, date)
+        doctor = Appointment.objects.filter(doctor_id=doctor_id).first()
+        doctor_name = doctor.doctor.full_display_name if doctor else "Doctor"
 
         return Response({
-            "id": appointment.id,
-            "date": appointment.date,
-            "time": appointment.time,
-            "status": appointment.status,
-            "notes": appointment.notes,
-            "patient_display": appointment.patient.name,
-            "doctor_display": appointment.doctor.full_display_name,
-            "message": "Appointment scheduled successfully!"
-        }, status=status.HTTP_201_CREATED)
+            "doctor_id": doctor_id,
+            "doctor_name": doctor_name,
+            "available_time_slots": available_slots
+        })
 
-    @action(detail=False, methods=["get"], url_path="next")
-    def next_appointment(self, request):
-        patient_id = request.query_params.get("patient_id")
-        if not patient_id:
-            return Response({"error": "patient_id required"}, status=400)
+    @action(detail=False, methods=["post"])
+    def check_time_slot(self, request):
+        """Check if a specific time slot is available"""
+        serializer = TimeSlotSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        doctor_id = serializer.validated_data["doctor_id"]
+        date = serializer.validated_data["date"]
+        time_str = serializer.validated_data.get("time")
 
-        now = timezone.now()
-        appt = next(
-            (a for a in self.get_queryset() if a.patient.patient_id == patient_id and a.appointment_datetime > now),
-            None
-        )
-        return Response(self.get_serializer(appt).data if appt else {}, status=200)
+        is_available = True
+        if time_str:
+            is_available = Appointment.is_time_slot_available(doctor_id, date, time_str)
 
-    @action(detail=False, methods=["get"], url_path="previous")
-    def previous_appointment(self, request):
-        patient_id = request.query_params.get("patient_id")
-        if not patient_id:
-            return Response({"error": "patient_id required"}, status=400)
+        doctor = Appointment.objects.filter(doctor_id=doctor_id).first()
+        doctor_name = doctor.doctor.full_display_name if doctor else "Doctor"
 
-        now = timezone.now()
-        previous_appts = [a for a in self.get_queryset() if a.patient.patient_id == patient_id and a.appointment_datetime < now]
-        appt = previous_appts[-1] if previous_appts else None
-        return Response(self.get_serializer(appt).data if appt else {}, status=200)
+        return Response({
+            "doctor_id": doctor_id,
+            "doctor_name": doctor_name,
+            "time": time_str,
+            "is_available": is_available
+        })
 
 
 # ================= PRESCRIPTION VIEW =================

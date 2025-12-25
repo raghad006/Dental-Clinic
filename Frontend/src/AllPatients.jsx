@@ -11,9 +11,6 @@ import {
   Cake,
   Mars,
   Venus,
-  Edit,
-  Save,
-  X,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import PaginatedTable from "./components/PaginatedTable";
@@ -74,8 +71,6 @@ const AllPatients = () => {
   const [showFilterMenu, setShowFilterMenu] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [loading, setLoading] = useState(false);
-  const [editingPatientId, setEditingPatientId] = useState(null);
-  const [editForm, setEditForm] = useState({});
   const [successMessage, setSuccessMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
 
@@ -124,107 +119,6 @@ const AllPatients = () => {
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
-
-  // Start editing a patient
-  const handleEditClick = (patient) => {
-    setEditingPatientId(patient.patient_id);
-    setEditForm({
-      name: patient.name,
-      age: patient.age,
-      gender: patient.gender,
-      phone: patient.phone || "",
-      medical_history: patient.medical_history || "",
-      allergies: patient.allergies || "",
-    });
-  };
-
-  // Cancel editing
-  const handleCancelEdit = () => {
-    setEditingPatientId(null);
-    setEditForm({});
-    setErrorMessage("");
-  };
-
-  // Update patient via PATCH
-  const handleUpdatePatient = async (patientId) => {
-    setLoading(true);
-    setErrorMessage("");
-    setSuccessMessage("");
-
-    try {
-      // Only send allowed fields
-      const updateData = {
-        name: editForm.name,
-        age: editForm.age,
-        gender: editForm.gender,
-        phone: editForm.phone,
-      };
-
-      const response = await authFetch(`${API_BASE_URL}/clinic-patient/${patientId}/`, {
-        method: "PATCH",
-        body: JSON.stringify(updateData),
-      });
-
-      if (!response) return; // authFetch handles redirection
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.detail || "Failed to update patient");
-      }
-
-      const updatedPatient = await response.json();
-      
-      // Update local state
-      setPatients(patients.map(p => 
-        p.patient_id === patientId ? { ...p, ...updatedPatient } : p
-      ));
-      
-      setSuccessMessage("Patient updated successfully!");
-      setEditingPatientId(null);
-      setEditForm({});
-
-      // Clear success message after 3 seconds
-      setTimeout(() => setSuccessMessage(""), 3000);
-
-    } catch (err) {
-      console.error("Error updating patient:", err);
-      setErrorMessage(err.message || "Failed to update patient. Please try again.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Delete patient
-  const handleDeletePatient = async (patientId) => {
-    if (!window.confirm("Are you sure you want to delete this patient? This action cannot be undone.")) {
-      return;
-    }
-
-    setLoading(true);
-    try {
-      const response = await authFetch(`${API_BASE_URL}/clinic-patient/${patientId}/`, {
-        method: "DELETE",
-      });
-
-      if (!response) return;
-
-      if (!response.ok) {
-        throw new Error("Failed to delete patient");
-      }
-
-      // Remove from local state
-      setPatients(patients.filter(p => p.patient_id !== patientId));
-      setSuccessMessage("Patient deleted successfully!");
-      
-      setTimeout(() => setSuccessMessage(""), 3000);
-
-    } catch (err) {
-      console.error("Error deleting patient:", err);
-      setErrorMessage("Failed to delete patient. Please try again.");
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const filteredPatients = useMemo(() => {
     let data = [...patients];
@@ -278,7 +172,7 @@ const AllPatients = () => {
                 Patients
               </h1>
               <p className="text-blue-600 mt-1">
-                Manage and view all patient records
+                View all patient records
               </p>
             </div>
           </div>
@@ -300,8 +194,7 @@ const AllPatients = () => {
                   </div>
                 </div>
               </div>
-
-              </div>
+            </div>
 
             <button
               onClick={() => navigate("/patients/add")}
@@ -442,7 +335,7 @@ const AllPatients = () => {
 
           {/* Patients Table */}
           <div className="rounded-2xl overflow-hidden border border-blue-100 mb-6">
-            {loading && !editingPatientId ? (
+            {loading ? (
               <div className="p-12 text-center">
                 <div className="inline-block w-10 h-10 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
                 <p className="mt-4 text-blue-600">Loading patients...</p>
@@ -467,132 +360,58 @@ const AllPatients = () => {
                         key={p.patient_id}
                         className="grid grid-cols-12 gap-4 p-4 hover:bg-blue-50/50 transition-all duration-200 items-center text-sm"
                       >
-                        {/* Patient ID - Read Only */}
+                        {/* Patient ID */}
                         <div className="col-span-2">
                           <div className="font-bold text-gray-800">{p.patient_id}</div>
                         </div>
                         
-                        {/* Name - Editable */}
+                        {/* Name */}
                         <div className="col-span-3">
-                          {editingPatientId === p.patient_id ? (
-                            <input
-                              type="text"
-                              className="w-full border border-blue-300 rounded px-2 py-1 text-sm"
-                              value={editForm.name}
-                              onChange={(e) => setEditForm({...editForm, name: e.target.value})}
-                            />
-                          ) : (
-                            <div className="flex items-center gap-2">
-                              <div className="p-1 bg-blue-100 rounded-lg">
-                                <User className="text-blue-600" size={14} />
-                              </div>
-                              <span className="font-medium text-gray-800">{p.name}</span>
+                          <div className="flex items-center gap-2">
+                            <div className="p-1 bg-blue-100 rounded-lg">
+                              <User className="text-blue-600" size={14} />
                             </div>
-                          )}
+                            <span className="font-medium text-gray-800">{p.name}</span>
+                          </div>
                         </div>
                         
-                        {/* Age - Editable */}
+                        {/* Age */}
                         <div className="col-span-1">
-                          {editingPatientId === p.patient_id ? (
-                            <input
-                              type="number"
-                              className="w-full border border-blue-300 rounded px-2 py-1 text-sm"
-                              value={editForm.age}
-                              onChange={(e) => setEditForm({...editForm, age: e.target.value})}
-                              min="0"
-                              max="150"
-                            />
-                          ) : (
-                            <div className="flex items-center gap-1">
-                              <Cake className="w-3.5 h-3.5 text-blue-500" />
-                              <span className="font-medium text-gray-800">{p.age}</span>
-                            </div>
-                          )}
+                          <div className="flex items-center gap-1">
+                            <Cake className="w-3.5 h-3.5 text-blue-500" />
+                            <span className="font-medium text-gray-800">{p.age}</span>
+                          </div>
                         </div>
                         
-                        {/* Gender - Editable */}
+                        {/* Gender */}
                         <div className="col-span-2">
-                          {editingPatientId === p.patient_id ? (
-                            <select
-                              className="w-full border border-blue-300 rounded px-2 py-1 text-sm"
-                              value={editForm.gender}
-                              onChange={(e) => setEditForm({...editForm, gender: e.target.value})}
-                            >
-                              <option value="Male">Male</option>
-                              <option value="Female">Female</option>
-                              <option value="Other">Other</option>
-                            </select>
-                          ) : (
-                            <span className={`px-3 py-1.5 rounded-full text-xs font-semibold ${
-                              p.gender === "Male" 
-                                ? "bg-blue-100 text-blue-700" 
-                                : p.gender === "Female"
-                                ? "bg-pink-100 text-pink-700"
-                                : "bg-gray-100 text-gray-700"
-                            }`}>
-                              {p.gender}
-                            </span>
-                          )}
+                          <span className={`px-3 py-1.5 rounded-full text-xs font-semibold ${
+                            p.gender === "Male" 
+                              ? "bg-blue-100 text-blue-700" 
+                              : p.gender === "Female"
+                              ? "bg-pink-100 text-pink-700"
+                              : "bg-gray-100 text-gray-700"
+                          }`}>
+                            {p.gender}
+                          </span>
                         </div>
                         
-                        {/* Phone - Editable */}
+                        {/* Phone */}
                         <div className="col-span-2">
-                          {editingPatientId === p.patient_id ? (
-                            <input
-                              type="tel"
-                              className="w-full border border-blue-300 rounded px-2 py-1 text-sm"
-                              value={editForm.phone || ""}
-                              onChange={(e) => setEditForm({...editForm, phone: e.target.value})}
-                              placeholder="Phone number"
-                            />
-                          ) : (
-                            <div className="flex items-center gap-1">
-                              <Phone className="w-3.5 h-3.5 text-blue-500" />
-                              <span className="text-gray-700">{p.phone || "Not provided"}</span>
-                            </div>
-                          )}
+                          <div className="flex items-center gap-1">
+                            <Phone className="w-3.5 h-3.5 text-blue-500" />
+                            <span className="text-gray-700">{p.phone || "Not provided"}</span>
+                          </div>
                         </div>
                         
-                        {/* Actions */}
+                        {/* Actions - Only View Button */}
                         <div className="col-span-2 text-right">
-                          {editingPatientId === p.patient_id ? (
-                            <div className="flex gap-2 justify-end">
-                              <button
-                                onClick={() => handleUpdatePatient(p.patient_id)}
-                                disabled={loading}
-                                className="flex items-center gap-1 px-3 py-2 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white rounded-lg text-xs font-medium transition-all shadow-sm disabled:opacity-50"
-                              >
-                                <Save size={12} /> {loading ? "Saving..." : "Save"}
-                              </button>
-                              <button
-                                onClick={handleCancelEdit}
-                                className="flex items-center gap-1 px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-xs font-medium transition-all"
-                              >
-                                <X size={12} /> Cancel
-                              </button>
-                            </div>
-                          ) : (
-                            <div className="flex gap-2 justify-end">
-                              <button
-                                onClick={() => handleEditClick(p)}
-                                className="flex items-center gap-1 px-3 py-2 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white rounded-lg text-xs font-medium transition-all shadow-sm"
-                              >
-                                <Edit size={12} /> Edit
-                              </button>
-                              <button
-                                onClick={() => navigate(`/patients/${p.patient_id}`)}
-                                className="flex items-center gap-1 px-3 py-2 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white rounded-lg text-xs font-medium transition-all shadow-sm"
-                              >
-                                <User size={12} /> View
-                              </button>
-                              <button
-                                onClick={() => handleDeletePatient(p.patient_id)}
-                                className="flex items-center gap-1 px-3 py-2 bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white rounded-lg text-xs font-medium transition-all shadow-sm"
-                              >
-                                <X size={12} /> Delete
-                              </button>
-                            </div>
-                          )}
+                          <button
+                            onClick={() => navigate(`/patients/${p.patient_id}`)}
+                            className="flex items-center gap-1 px-4 py-2 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white rounded-lg text-xs font-medium transition-all shadow-sm hover:shadow-md"
+                          >
+                            <User size={12} /> View Profile
+                          </button>
                         </div>
                       </div>
                     ))

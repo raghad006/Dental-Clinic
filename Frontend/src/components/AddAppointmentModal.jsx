@@ -57,6 +57,28 @@ const AddAppointmentPage = () => {
     fetchPatients();
   }, []);
 
+  /* ================= FALLBACK: FETCH FROM APPOINTMENTS ENDPOINT ================= */
+  const fetchTimeSlotsFromAlternativeEndpoint = async (doctorId, date) => {
+    try {
+      console.log("🔄 Trying alternative endpoint: /appointments/available_time_slots/");
+      const res = await fetch(
+        `${API_BASE_URL}/appointments/available_time_slots/?doctor_id=${doctorId}&date=${date}`
+      );
+      
+      if (res.ok) {
+        const data = await res.json();
+        console.log("✅ Alternative endpoint returned:", data);
+        setAvailableTimeSlots(data.available_time_slots || []);
+      } else {
+        console.error("❌ Both endpoints failed");
+        setAvailableTimeSlots([]);
+      }
+    } catch (err) {
+      console.error("❌ Alternative endpoint also failed:", err);
+      setAvailableTimeSlots([]);
+    }
+  };
+
   /* ================= FETCH AVAILABLE TIME SLOTS FROM BACKEND ================= */
   const fetchAvailableTimeSlots = async (doctorId, date) => {
     if (!doctorId || !date) {
@@ -66,23 +88,28 @@ const AddAppointmentPage = () => {
     
     setFetchingTimeSlots(true);
     try {
+      // Try the primary endpoint first
       const res = await fetch(
         `${API_BASE_URL}/time-slots/available/?doctor_id=${doctorId}&date=${date}`
       );
       
       if (res.ok) {
         const data = await res.json();
-        console.log("✅ Backend returned available slots:", data.available_time_slots);
-        console.log("✅ Doctor:", data.doctor_name);
+        console.log("✅ Backend returned available slots:", data);
         setAvailableTimeSlots(data.available_time_slots || []);
+      } else if (res.status === 404) {
+        // Endpoint not found - fallback to appointments endpoint
+        console.warn("⚠️ /time-slots/available endpoint not found, trying alternative...");
+        await fetchTimeSlotsFromAlternativeEndpoint(doctorId, date);
       } else {
-        const errorData = await res.json();
+        const errorData = await res.json().catch(() => ({}));
         console.error("❌ Failed to fetch available time slots:", errorData);
         setAvailableTimeSlots([]);
       }
     } catch (err) {
       console.error("❌ Error fetching time slots:", err);
-      setAvailableTimeSlots([]);
+      // Try alternative endpoint
+      await fetchTimeSlotsFromAlternativeEndpoint(doctorId, date);
     } finally {
       setFetchingTimeSlots(false);
     }
@@ -97,8 +124,42 @@ const AddAppointmentPage = () => {
     }
   }, [doctorId, date]);
 
+  /* ================= FALLBACK TIME SLOT CHECK ================= */
+  const checkTimeSlotFallback = async (doctorId, date, time) => {
+    try {
+      // First check if time is in available slots
+      const available = availableTimeSlots.includes(time);
+      if (!available) return false;
+      
+      // Additional check using appointments endpoint
+      const res = await fetch(`${API_BASE_URL}/appointments/check_time_slot/`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          doctor_id: doctorId,
+          date: date,
+          time: time
+        })
+      });
+      
+      if (res.ok) {
+        const data = await res.json();
+        return data.is_available;
+      }
+      return available; // Return basic check result
+    } catch (err) {
+      console.error("Fallback check failed:", err);
+      return false;
+    }
+  };
+
   /* ================= CHECK SPECIFIC TIME SLOT AVAILABILITY ================= */
   const checkTimeSlotAvailability = async (doctorId, date, time) => {
+    if (!doctorId || !date || !time) {
+      return false;
+    }
+
+    // First try the /time-slots/check/ endpoint
     try {
       const res = await fetch(`${API_BASE_URL}/time-slots/check/`, {
         method: "POST",
@@ -112,13 +173,17 @@ const AddAppointmentPage = () => {
       
       if (res.ok) {
         const data = await res.json();
-        console.log("🔍 Time slot check:", data);
+        console.log("🔍 Time slot check result:", data);
         return data.is_available;
+      } else if (res.status === 404) {
+        // Fallback: Use the appointments endpoint
+        console.warn("⚠️ /time-slots/check endpoint not found, using fallback check");
+        return await checkTimeSlotFallback(doctorId, date, time);
       }
       return false;
     } catch (err) {
-      console.error("Error checking time slot:", err);
-      return false;
+      console.error("Error checking time slot, trying fallback:", err);
+      return await checkTimeSlotFallback(doctorId, date, time);
     }
   };
 
