@@ -225,19 +225,3 @@ class Prescription(models.Model):
 
     def __str__(self):
         return f"Prescription for {self.patient.name} ({self.patient.patient_id})"
-
-
-# ---------------- Prescription Item ----------------
-class PrescriptionItem(models.Model):
-    prescription = models.ForeignKey(
-        Prescription,
-        related_name="items",
-        on_delete=models.CASCADE
-    )
-    medicine = models.CharField(max_length=255)
-    dosage = models.CharField(max_length=100)
-    frequency = models.CharField(max_length=100)
-    notes = models.CharField(max_length=255, blank=True)
-    
-    def __str__(self):
-        return f"{self.medicine} - {self.dosage} ({self.frequency})"

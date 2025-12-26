@@ -14,6 +14,8 @@ import {
   Calendar,
   File
 } from "lucide-react";
+
+// Import individual tabs
 import Examinations from "./ExaminationsTab";
 import Xrays from "./XRaysTab";
 import Prescription from "./Prescription";
@@ -31,7 +33,6 @@ export default function MedicalRecord() {
   useEffect(() => {
     const fetchPatientData = async () => {
       if (!patient_id) return;
-      
       setLoading(true);
       try {
         const authHeaders = {
@@ -44,7 +45,6 @@ export default function MedicalRecord() {
         );
         
         if (!response.ok) throw new Error("Failed to fetch patient data");
-        
         const data = await response.json();
         setPatient({
           ...data,

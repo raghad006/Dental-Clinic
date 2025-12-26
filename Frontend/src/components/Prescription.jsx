@@ -236,3 +236,4 @@ export default function PrescriptionTab({ patient, setPatient }) {
   );
 }
 
+

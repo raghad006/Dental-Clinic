@@ -303,7 +303,9 @@ const totalStockValue = stock.reduce(
   (sum, item) => sum + item.quantity * item.price,
   0
 );
-
+const expiringSoonItems = stock.filter(
+  (item) => item.is_expiring_soon === true
+);
 const uniqueCategories = [...new Set(stock.map((item) => item.category))];
 
   const getItemImage = (item) => {
@@ -374,43 +376,64 @@ const uniqueCategories = [...new Set(stock.map((item) => item.category))];
         {/* Stats Cards */}
         <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-2xl p-6 md:p-8 border border-blue-100">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
-            {/* Total Items */}
-            <div className="bg-white rounded-xl p-5 border border-blue-100 shadow-sm">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-gray-600 text-sm">Total Items</p>
-                  <p className="text-2xl font-bold text-gray-800">{stock.length}</p>
-                </div>
-                <div className="p-3 bg-blue-100 rounded-lg">
-                  <Package className="text-blue-600" size={24} />
-                </div>
-              </div>
-            </div>
+{/* Total Items */}
+<div className="bg-gradient-to-br from-blue-50 to-white p-4 rounded-xl border border-blue-100 shadow-sm">
+  <div className="flex items-center gap-3">
+    <div className="p-2 bg-blue-100 rounded-lg">
+      <Package className="text-blue-600" size={20} />
+    </div>
+    <div>
+      <p className="text-sm font-medium text-gray-600">Total Items</p>
+      <p className="text-2xl font-bold text-gray-800">{stock.length}</p>
+    </div>
+  </div>
+</div>
+
 
             {/* Critical Items */}
-            <div className="bg-white rounded-xl p-5 border border-blue-100 shadow-sm">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-gray-600 text-sm">Critical Items</p>
-                  <p className="text-2xl font-bold text-red-600">{criticalStockItems.length}</p>
-                </div>
-                <div className="p-3 bg-red-100 rounded-lg">
-                  <AlertTriangle className="text-red-600" size={24} />
-                </div>
+<div className="bg-gradient-to-br from-red-50 to-white p-4 rounded-xl border border-red-100 shadow-sm">
+  <div className="flex items-center gap-3">
+    <div className="p-2 bg-red-100 rounded-lg">
+      <svg className="w-5 h-5 text-red-600" fill="currentColor" viewBox="0 0 20 20">
+        <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd"/>
+      </svg>
+    </div>
+    <div>
+      <p className="text-sm font-medium text-gray-600">Critical Items</p>
+      <p className="text-2xl font-bold text-red-600">{criticalStockItems.length}</p>
+    </div>
+
               </div>
             </div>
+            {/* Expiring Soon Items */}
+<div className="bg-gradient-to-br from-orange-50 to-white p-4 rounded-xl border border-orange-100 shadow-sm">
+  <div className="flex items-center gap-3">
+    <div className="p-2 bg-orange-100 rounded-lg">
+      <Clock className="w-5 h-5 text-orange-600" />
+    </div>
+
+    <div>
+      <p className="text-sm font-medium text-gray-600">Expiring Soon</p>
+      <p className="text-2xl font-bold text-orange-600">
+        {expiringSoonItems.length}
+      </p>
+    </div>
+  </div>
+</div>
             {/* Categories */}
-            <div className="bg-white rounded-xl p-5 border border-blue-100 shadow-sm">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-gray-600 text-sm">Categories</p>
-                  <p className="text-2xl font-bold text-gray-800">{uniqueCategories.length}</p>
-                </div>
-                <div className="p-3 bg-purple-100 rounded-lg">
-                  <Layers className="text-purple-600" size={24} />
-                </div>
-              </div>
-            </div>
+{/* Categories */}
+<div className="bg-gradient-to-br from-purple-50 to-white p-4 rounded-xl border border-purple-100 shadow-sm">
+  <div className="flex items-center gap-3">
+    <div className="p-2 bg-purple-100 rounded-lg">
+      <Layers className="text-purple-600" size={20} />
+    </div>
+    <div>
+      <p className="text-sm font-medium text-gray-600">Categories</p>
+      <p className="text-2xl font-bold text-gray-800">{uniqueCategories.length}</p>
+    </div>
+  </div>
+</div>
+
           </div>
 
           {/* Search, Filter, Quick Actions */}
@@ -573,28 +596,46 @@ const uniqueCategories = [...new Set(stock.map((item) => item.category))];
   </div>
 </div>
 
-                    {/* Status */}
-                    <div className="col-span-2">
-                    <div
-    className={`flex items-center gap-2 px-3 py-1 rounded-lg text-xs font-semibold transition-all ${getStockStatusColor(
-      item.quantity,
-      item.low_stock_threshold
-    )}`}
-  >
-    {getStockStatusIcon(item.quantity, item.low_stock_threshold)}
-    {getStockStatusText(item.quantity, item.low_stock_threshold)}
+<div className="col-span-2">
+  <div className="group relative inline-block">
+    <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full border ${getStockStatusColor(item.quantity, item.low_stock_threshold)}`}>
+      <div className="w-4 h-4 flex items-center justify-center flex-shrink-0">
+        {getStockStatusIcon(item.quantity, item.low_stock_threshold)}
+      </div>
+      <span className="font-semibold text-sm whitespace-nowrap">
+        {getStockStatusText(item.quantity, item.low_stock_threshold)}
+      </span>
+    </div>
+    
+    <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap z-10 pointer-events-none">
+      <div className="flex flex-col gap-1">
+        <span className="font-medium">Current: {item.quantity} units</span>
+        <span className="opacity-75">Threshold: {item.low_stock_threshold} {item.unit}</span>
+      </div>
+      <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-l-transparent border-r-transparent border-t-gray-900"></div>
+    </div>
   </div>
 </div>
-
 
                     {/* Expiry Date */}
                     <div className="col-span-2">
                       <div className="flex items-center gap-2">
                         <Calendar className="text-blue-500" size={14} />
-                        <span className="text-gray-700">
-                          {item.expiry_date ? new Date(item.expiry_date).toLocaleDateString() : "Not set"}
-                        </span>
-                      </div>
+                        <span className="text-gray-700 font-semibold text-sm">
+   {item.expiry_date
+      ? new Date(item.expiry_date).toLocaleDateString()
+      : "None"}
+  </span>
+
+  {item.is_expiring_soon && (
+<span className="px-2.5 py-1 text-xs font-semibold bg-gradient-to-r from-red-50 to-orange-50 text-red-700 border border-red-200 rounded-full flex items-center gap-1">
+  <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd"/>
+  </svg>
+  Expiring Soon
+</span>
+  )}
+</div>
                     </div>
 
                     {/* Actions */}

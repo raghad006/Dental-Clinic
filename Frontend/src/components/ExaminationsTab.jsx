@@ -19,6 +19,7 @@ export default function ExaminationsTab({ patient, setPatient }) {
                 : []
         };
 
+    
         const updatedExams = editItem
             ? patient.examinations.map((item, idx) => idx === editItem.index ? newItem : item)
             : [...patient.examinations, newItem];

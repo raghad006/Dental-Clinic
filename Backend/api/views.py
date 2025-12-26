@@ -16,11 +16,10 @@ from .serializers import (
     ClinicPatientSerializer,
     AppointmentSerializer,
     DoctorSerializer,
-    PrescriptionSerializer,
     TimeSlotSerializer
 )
 
-from .models import ClinicUser, Patient, Appointment, ClinicPatient, Prescription
+from .models import ClinicUser, Patient, Appointment, ClinicPatient
 
 # ================= STAFF & PATIENT VIEWS =================
 
@@ -205,13 +204,6 @@ class AppointmentViewSet(viewsets.ModelViewSet):
             "time": time_str,
             "is_available": is_available
         })
-
-
-# ================= PRESCRIPTION VIEW =================
-
-class PrescriptionCreateView(generics.CreateAPIView):
-    serializer_class = PrescriptionSerializer
-    permission_classes = [IsAuthenticated]
 
 
 # ================= TIME SLOT API ENDPOINTS =================

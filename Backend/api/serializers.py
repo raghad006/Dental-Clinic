@@ -4,7 +4,7 @@ from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.utils import timezone
 from datetime import datetime
-from .models import ClinicUser, Patient, ClinicPatient, Appointment, Prescription, PrescriptionItem
+from .models import ClinicUser, Patient, ClinicPatient, Appointment
 
 
 class ClinicUserRegisterSerializer(serializers.ModelSerializer):
@@ -295,59 +295,3 @@ class DoctorSerializer(serializers.ModelSerializer):
         model = ClinicUser
         fields = ['id', 'full_display_name', 'email', 'role', 'first_name', 'last_name']
 
-
-class PrescriptionItemSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = PrescriptionItem
-        fields = ["medicine", "dosage", "frequency", "notes"]
-
-
-class PrescriptionSerializer(serializers.ModelSerializer):
-    items = PrescriptionItemSerializer(many=True)
-
-    patient_name = serializers.CharField(source="patient.name", read_only=True)
-    patient_id = serializers.CharField(source="patient.patient_id", read_only=True)
-    doctor_name = serializers.CharField(source="doctor.full_display_name", read_only=True)
-
-    class Meta:
-        model = Prescription
-        fields = [
-            "id",
-            "appointment",
-            "patient_name",
-            "patient_id",
-            "doctor_name",
-            "created_at",
-            "items",
-        ]
-
-    def create(self, validated_data):
-        items_data = validated_data.pop("items", [])
-        appointment = validated_data.get("appointment")
-
-        prescription = Prescription.objects.create(
-            appointment=appointment,
-            patient=appointment.patient,
-            doctor=appointment.doctor,
-        )
-
-        for item in items_data:
-            PrescriptionItem.objects.create(
-                prescription=prescription,
-                **item
-            )
-
-        return prescription
-
-    def update(self, instance, validated_data):
-        items_data = validated_data.pop("items", [])
-        instance.appointment = validated_data.get("appointment", instance.appointment)
-        instance.patient = validated_data.get("patient", instance.patient)
-        instance.doctor = validated_data.get("doctor", instance.doctor)
-        instance.save()
-
-        instance.items.all().delete()
-        for item in items_data:
-            PrescriptionItem.objects.create(prescription=instance, **item)
-
-        return instance

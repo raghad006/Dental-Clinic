@@ -10,7 +10,6 @@ from .views import (
     ClinicPatientRetrieveUpdateView,
     DoctorListView,
     AppointmentViewSet,
-    PrescriptionCreateView,
     get_available_time_slots,  # Add this import
     check_time_slot_availability,  # Add this import
     get_doctor_availability,  # Add this import
@@ -46,6 +45,4 @@ urlpatterns = [
     path("doctors/<int:doctor_id>/availability/", get_doctor_availability, name="doctor-availability"),
 
     path("", include(router.urls)),
-
-    path("prescriptions/", PrescriptionCreateView.as_view(), name="prescription-create"),
 ]

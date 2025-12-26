@@ -365,5 +365,6 @@ export default function ProgressTracker() {
 [Image of dental braces progression timeline with sequential before and after photos]
 
     </div>
-  );
+  
+);
 }

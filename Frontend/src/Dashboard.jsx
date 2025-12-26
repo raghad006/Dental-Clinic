@@ -79,25 +79,30 @@ const Dashboard = () => {
     };
 
     const fetchStock = async () => {
-      setLoadingStock(true);
-      try {
-        // Note: You need to create this endpoint or use your existing one
-        const res = await fetch(`${API_BASE}/stock-items/`, {
-          headers: authHeaders(),
-        });
-        if (res.ok) {
-          const data = await res.json();
-          setStock(data);
-        } else {
-          const data = await res.json();
-          setStock(data);
-        }
-      } catch (err) {
-        console.error("Error fetching stock:", err);
-      } finally {
-        setLoadingStock(false);
-      }
-    };
+  setLoadingStock(true);
+  try {
+    const res = await fetch(`${API_BASE}/stock-items/`, {
+      headers: authHeaders(),
+    });
+
+    const data = await res.json();
+
+    // ✅ FIX: always set an array
+    if (Array.isArray(data)) {
+      setStock(data);
+    } else if (Array.isArray(data.results)) {
+      setStock(data.results);
+    } else {
+      setStock([]);
+    }
+
+  } catch (err) {
+    console.error("Error fetching stock:", err);
+    setStock([]);
+  } finally {
+    setLoadingStock(false);
+  }
+};
 
     const fetchPatients = async () => {
       setLoadingPatients(true);
