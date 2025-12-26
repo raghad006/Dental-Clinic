@@ -295,3 +295,100 @@ class DoctorSerializer(serializers.ModelSerializer):
         model = ClinicUser
         fields = ['id', 'full_display_name', 'email', 'role', 'first_name', 'last_name']
 
+# api/serializers.py
+from rest_framework import serializers
+from .models import ClinicPatient
+from medical_records.models import Prescription, PrescriptionItem, ExaminationRecord, ExaminationProgress
+
+class PrescriptionItemNestedSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PrescriptionItem
+        fields = ["id", "medicine", "dosage", "frequency", "notes"]
+
+class PrescriptionNestedSerializer(serializers.ModelSerializer):
+    items = PrescriptionItemNestedSerializer(many=True, read_only=True)
+    doctor_name = serializers.CharField(source="doctor.full_display_name", read_only=True)
+
+    class Meta:
+        model = Prescription
+        fields = ["id", "doctor_name", "created_at", "items"]
+
+class ExaminationProgressNestedSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ExaminationProgress
+        fields = ["id", "session_number", "description", "before_images", "after_images", "created_at"]
+
+class ExaminationRecordNestedSerializer(serializers.ModelSerializer):
+    progress_entries = ExaminationProgressNestedSerializer(many=True, read_only=True)
+    doctor_name = serializers.CharField(source="doctor.full_display_name", read_only=True)
+
+    class Meta:
+        model = ExaminationRecord
+        fields = ["id", "doctor_name", "notes", "diagnosis", "treatment_plan", "created_at", "updated_at", "progress_entries"]
+
+class ClinicPatientMedicalRecordSerializer(serializers.ModelSerializer):
+    # Nested medical info
+    prescriptions = serializers.SerializerMethodField()
+    examinations = serializers.SerializerMethodField()
+    xRays = serializers.SerializerMethodField()  # Placeholder
+    treatmentPlans = serializers.SerializerMethodField()  # Placeholder
+    last_visit = serializers.SerializerMethodField()
+
+    class Meta:
+        model = ClinicPatient
+        fields = [
+            "patient_id",
+            "name",
+            "age",
+            "gender",
+            "phone",
+            "email",
+            "address",
+            "emergency_contact",
+            "blood_type",
+            "allergies",
+            "medical_history",
+            "examinations",
+            "xRays",
+            "treatmentPlans",
+            "prescriptions",
+            "last_visit",
+        ]
+
+    # ---------------- Prescriptions ----------------
+    def get_prescriptions(self, obj):
+        prescriptions = Prescription.objects.filter(patient=obj).prefetch_related("items")
+        return PrescriptionNestedSerializer(prescriptions, many=True).data
+
+    # ---------------- Examinations ----------------
+    def get_examinations(self, obj):
+        exams = ExaminationRecord.objects.filter(patient=obj).prefetch_related("progress_entries")
+        return ExaminationRecordNestedSerializer(exams, many=True).data
+
+    # ---------------- X-Rays placeholder ----------------
+    def get_xRays(self, obj):
+        return []
+
+    # ---------------- Treatment Plans placeholder ----------------
+    def get_treatmentPlans(self, obj):
+        return []
+
+    # ---------------- Last visit ----------------
+    def get_last_visit(self, obj):
+        last_appointment = obj.appointments.order_by("-date").first()
+        if last_appointment:
+            return last_appointment.date
+        return None
+
+    # ---------------- Deserialize medical_history ----------------
+    def to_representation(self, instance):
+        ret = super().to_representation(instance)
+        import json
+        try:
+            medical_history = json.loads(ret.get("medical_history") or "{}")
+        except json.JSONDecodeError:
+            medical_history = {}
+
+        ret["medicalHistoryText"] = ", ".join(f"{k}: {v}" for k, v in medical_history.items()) if medical_history else "No medical history provided"
+        ret["dentalHistory"] = medical_history.get("dental", "No dental history provided")
+        return ret

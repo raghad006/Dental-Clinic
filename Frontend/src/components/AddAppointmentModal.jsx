@@ -1,16 +1,22 @@
 import React, { useState, useEffect } from "react";
 import { CalendarPlus, ArrowLeft, User, Clock, Stethoscope, FileText, Phone, Check, X } from "lucide-react";
 import CalendarDropdown from "./CalendarDropdown";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom"; // Added useLocation
 
 const API_BASE_URL = "http://127.0.0.1:8000/api";
 
 const AddAppointmentPage = () => {
   const navigate = useNavigate();
+  const location = useLocation(); // Added to get query parameters
+  
+  // Get patient_id from URL query parameters
+  const queryParams = new URLSearchParams(location.search);
+  const patientIdFromUrl = queryParams.get('patient_id');
+
   const [date, setDate] = useState("");
   const [time, setTime] = useState("");
   const [doctorId, setDoctorId] = useState("");
-  const [patientId, setPatientId] = useState("");
+  const [patientId, setPatientId] = useState(patientIdFromUrl || "");
   const [procedureType, setProcedureType] = useState("");
   const [notes, setNotes] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
@@ -22,6 +28,7 @@ const AddAppointmentPage = () => {
   const [loading, setLoading] = useState(false);
   const [availableTimeSlots, setAvailableTimeSlots] = useState([]);
   const [fetchingTimeSlots, setFetchingTimeSlots] = useState(false);
+  const [selectedPatientInfo, setSelectedPatientInfo] = useState(null); // Added to store patient info
 
   const procedureOptions = [
     "Teeth Cleaning", "Filling", "Implant", "Consultation", 
@@ -48,6 +55,14 @@ const AddAppointmentPage = () => {
         const data = await res.json();
         setPatientOptions(data);
         setFilteredPatients(data);
+        
+        // If patient_id is provided in URL, auto-select that patient
+        if (patientIdFromUrl) {
+          const patient = data.find(p => p.patient_id === patientIdFromUrl);
+          if (patient) {
+            selectPatient(patient);
+          }
+        }
       } catch (err) {
         console.error("Failed to fetch patients:", err);
       }
@@ -55,7 +70,7 @@ const AddAppointmentPage = () => {
 
     fetchDoctors();
     fetchPatients();
-  }, []);
+  }, [patientIdFromUrl]); // Added dependency
 
   /* ================= FALLBACK: FETCH FROM APPOINTMENTS ENDPOINT ================= */
   const fetchTimeSlotsFromAlternativeEndpoint = async (doctorId, date) => {
@@ -205,6 +220,7 @@ const AddAppointmentPage = () => {
     setPatientId(patient.patient_id);
     setPatientSearch(patient.name);
     setPhoneNumber(patient.phone || "");
+    setSelectedPatientInfo(patient); // Store patient info
     setShowPatientDropdown(false);
   };
 
@@ -332,7 +348,16 @@ const AddAppointmentPage = () => {
               <h1 className="text-3xl md:text-4xl font-bold text-gray-800">
                 Schedule New Appointment
               </h1>
-              <p className="text-blue-600 mt-1">Create a new dental appointment for your patient</p>
+              <p className="text-blue-600 mt-1">
+                {selectedPatientInfo 
+                  ? `Creating appointment for ${selectedPatientInfo.name}`
+                  : "Create a new dental appointment for your patient"}
+              </p>
+              {patientIdFromUrl && !selectedPatientInfo && (
+                <p className="text-amber-600 text-sm mt-1">
+                  Loading patient information...
+                </p>
+              )}
             </div>
           </div>
         </div>
@@ -348,52 +373,85 @@ const AddAppointmentPage = () => {
                     <User className="text-blue-600" size={20} />
                   </div>
                   <h2 className="text-xl font-bold text-gray-800">Patient Information</h2>
-                </div>
-                <div className="relative">
-                  <label className="block text-sm font-semibold text-blue-800 mb-2">
-                    Search Patient
-                  </label>
-                  <div className="relative">
-                    <input
-                      value={patientSearch}
-                      onChange={(e) => {
-                        setPatientSearch(e.target.value);
-                        setShowPatientDropdown(true);
-                      }}
-                      className="w-full border-2 border-blue-200 rounded-xl px-4 py-3.5 focus:ring-2 focus:ring-blue-400 focus:border-blue-400 bg-white shadow-sm transition-all"
-                      placeholder="Type patient name or select from records..."
-                    />
-                    <User className="absolute right-4 top-3.5 text-blue-400" size={20} />
-                  </div>
-                  
-                  {showPatientDropdown && filteredPatients.length > 0 && (
-                    <div className="absolute z-20 w-full mt-2 bg-white rounded-xl shadow-2xl border border-blue-200 max-h-64 overflow-y-auto">
-                      {filteredPatients.map(p => (
-                        <button
-                          key={p.patient_id}
-                          className="block w-full text-left px-4 py-3 hover:bg-blue-50 border-b border-blue-100 last:border-b-0 transition-all group"
-                          onClick={() => selectPatient(p)}
-                        >
-                          <div className="flex justify-between items-center">
-                            <div>
-                              <div className="font-semibold text-gray-800 group-hover:text-blue-700">{p.name}</div>
-                              <div className="text-sm text-blue-600">ID: {p.patient_id}</div>
-                            </div>
-                            <div className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full">
-                              Select
-                            </div>
-                          </div>
-                        </button>
-                      ))}
-                    </div>
+                  {patientIdFromUrl && (
+                    <span className="px-3 py-1 bg-emerald-100 text-emerald-700 text-xs font-semibold rounded-full">
+                      Pre-filled from Patients
+                    </span>
                   )}
                 </div>
-                {patientId && (
+                
+                {selectedPatientInfo ? (
+                  <div className="p-4 bg-gradient-to-r from-emerald-50 to-emerald-100 rounded-xl border-2 border-emerald-200 mb-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <div className="font-semibold text-emerald-800 text-lg">{selectedPatientInfo.name}</div>
+                        <div className="text-sm text-emerald-600 flex items-center gap-4 mt-1">
+                          <span>ID: {selectedPatientInfo.patient_id}</span>
+                          <span>Age: {selectedPatientInfo.age}</span>
+                          <span>Gender: {selectedPatientInfo.gender}</span>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => {
+                          setPatientId("");
+                          setPatientSearch("");
+                          setSelectedPatientInfo(null);
+                          setPhoneNumber("");
+                        }}
+                        className="text-xs text-emerald-700 hover:text-emerald-800 font-medium"
+                      >
+                        Change Patient
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="relative">
+                    <label className="block text-sm font-semibold text-blue-800 mb-2">
+                      Search Patient
+                    </label>
+                    <div className="relative">
+                      <input
+                        value={patientSearch}
+                        onChange={(e) => {
+                          setPatientSearch(e.target.value);
+                          setShowPatientDropdown(true);
+                        }}
+                        className="w-full border-2 border-blue-200 rounded-xl px-4 py-3.5 focus:ring-2 focus:ring-blue-400 focus:border-blue-400 bg-white shadow-sm transition-all"
+                        placeholder="Type patient name or select from records..."
+                      />
+                      <User className="absolute right-4 top-3.5 text-blue-400" size={20} />
+                    </div>
+                    
+                    {showPatientDropdown && filteredPatients.length > 0 && (
+                      <div className="absolute z-20 w-full mt-2 bg-white rounded-xl shadow-2xl border border-blue-200 max-h-64 overflow-y-auto">
+                        {filteredPatients.map(p => (
+                          <button
+                            key={p.patient_id}
+                            className="block w-full text-left px-4 py-3 hover:bg-blue-50 border-b border-blue-100 last:border-b-0 transition-all group"
+                            onClick={() => selectPatient(p)}
+                          >
+                            <div className="flex justify-between items-center">
+                              <div>
+                                <div className="font-semibold text-gray-800 group-hover:text-blue-700">{p.name}</div>
+                                <div className="text-sm text-blue-600">ID: {p.patient_id} • Age: {p.age} • {p.gender}</div>
+                              </div>
+                              <div className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full">
+                                Select
+                              </div>
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+                
+                {selectedPatientInfo && (
                   <div className="mt-4 p-3 bg-gradient-to-r from-blue-100 to-blue-200 rounded-lg border border-blue-300 flex items-center gap-3">
                     <Check className="text-blue-600" size={20} />
                     <div>
                       <div className="font-semibold text-blue-800">Patient Selected</div>
-                      <div className="text-blue-700">{patientSearch}</div>
+                      <div className="text-blue-700">{selectedPatientInfo.name} (ID: {selectedPatientInfo.patient_id})</div>
                     </div>
                   </div>
                 )}
@@ -496,7 +554,7 @@ const AddAppointmentPage = () => {
                         </>
                       )}
                     </>
-                  ) : (
+                    ) : (
                     <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
                       <p className="text-blue-600 text-center">
                         Please select a doctor and date to see available time slots
@@ -557,6 +615,11 @@ const AddAppointmentPage = () => {
                     className="w-full border-2 border-blue-200 rounded-xl px-4 py-3.5 focus:ring-2 focus:ring-blue-400 focus:border-blue-400 bg-white transition-all"
                     placeholder="+1 (555) 789-0123"
                   />
+                  {selectedPatientInfo && selectedPatientInfo.phone && (
+                    <p className="text-sm text-blue-600 mt-2">
+                      Patient's registered phone: {selectedPatientInfo.phone}
+                    </p>
+                  )}
                 </div>
               </div>
             </div>
@@ -592,7 +655,7 @@ const AddAppointmentPage = () => {
                   
                   <div className="flex items-center justify-between border-b border-blue-700 pb-3">
                     <span className="text-blue-300">Patient</span>
-                    <span className="font-semibold">{patientSearch || "Not selected"}</span>
+                    <span className="font-semibold">{selectedPatientInfo?.name || "Not selected"}</span>
                   </div>
                   
                   <div className="flex items-center justify-between border-b border-blue-700 pb-3">
@@ -683,6 +746,11 @@ const AddAppointmentPage = () => {
                 
                 <div className="mt-4 text-xs text-gray-500 text-center">
                   <p>All fields are required to schedule an appointment</p>
+                  {patientIdFromUrl && (
+                    <p className="text-emerald-600 mt-1">
+                      ✓ Patient pre-selected from patient list
+                    </p>
+                  )}
                 </div>
               </div>
             </div>

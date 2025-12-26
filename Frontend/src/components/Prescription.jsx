@@ -1,102 +1,112 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Plus, Edit2, History, Clock, X, Check } from "lucide-react";
 
 const getPreciseDateTime = () => new Date().toLocaleString();
 
 export default function PrescriptionTab({ patient, setPatient }) {
+  const API_BASE = "http://127.0.0.1:8000/api"; // adjust your backend URL
+
   const availableMedicines = [
-    "Paracetamol",
-    "Ibuprofen",
-    "Amoxicillin",
-    "Cefalexin",
-    "Metronidazole",
-    "Azithromycin",
-    "Omeprazole",
-    "Cetirizine",
-    "Cough Syrup",
-    "Symptomatic Relief",
-    "Vitamin D",
-    "Iron Supplement",
-    "Insulin",
-    "Aspirin",
-    "Hydrocortisone",
-    "Clarithromycin",
+    "Paracetamol","Ibuprofen","Amoxicillin","Cefalexin","Metronidazole",
+    "Azithromycin","Omeprazole","Cetirizine","Cough Syrup","Symptomatic Relief",
+    "Vitamin D","Iron Supplement","Insulin","Aspirin","Hydrocortisone","Clarithromycin",
   ];
 
-  const dosages = [
-    "50mg",
-    "100mg",
-    "150mg",
-    "200mg",
-    "250mg",
-    "300mg",
-    "400mg",
-    "500mg",
-    "750mg",
-    "1g",
-    "1 Tablet",
-    "2 Tablets",
-  ];
-
-  const frequencies = [
-    "Once a day",
-    "Twice a day",
-    "Three times a day",
-    "Every 6 hours",
-    "Every 8 hours",
-    "As needed",
-    "Once a week",
-  ];
+  const dosages = ["50mg","100mg","150mg","200mg","250mg","300mg","400mg","500mg","750mg","1g","1 Tablet","2 Tablets"];
+  const frequencies = ["Once a day","Twice a day","Three times a day","Every 6 hours","Every 8 hours","As needed","Once a week"];
 
   const [showAdd, setShowAdd] = useState(false);
   const [formMedicines, setFormMedicines] = useState([]);
   const [currentMedicine, setCurrentMedicine] = useState({ medicine: "", dosage: "", frequency: "", notes: "" });
   const [editItem, setEditItem] = useState(null);
   const [modal, setModal] = useState(null);
+  const [loading, setLoading] = useState(false);
 
-  // --- Add medicine to current prescription form ---
+  // ================= Fetch prescriptions from backend =================
+  useEffect(() => {
+    if (!patient.id) return;
+    setLoading(true);
+    fetch(`${API_BASE}/prescriptions/?patient=${patient.id}`)
+      .then(res => res.json())
+      .then(data => {
+        // transform backend data for front-end use
+        const prescriptions = data.map(p => ({
+          id: p.id,
+          date: new Date(p.created_at).toLocaleString(),
+          medicines: p.items.map(i => ({ ...i, id: i.id })),
+          history: p.history || [], // if backend supports history
+        }));
+        setPatient({ ...patient, prescriptions });
+        setLoading(false);
+      })
+      .catch(err => { console.error(err); setLoading(false); });
+  }, [patient.id]);
+
+  // ================= Add medicine to current form =================
   const addMedicineToForm = () => {
     if (!currentMedicine.medicine || !currentMedicine.dosage || !currentMedicine.frequency) return;
     setFormMedicines([...formMedicines, { ...currentMedicine, id: Date.now() }]);
     setCurrentMedicine({ medicine: "", dosage: "", frequency: "", notes: "" });
   };
 
-  // --- Remove medicine from current form ---
   const removeMedicineFromForm = (id) => {
     setFormMedicines(formMedicines.filter(m => m.id !== id));
   };
 
-  // --- Save prescription ---
+  // ================= Save prescription to backend =================
   const handleAddEdit = () => {
     if (formMedicines.length === 0) return;
+    if (!patient.id) return;
 
-    const newPrescription = {
-      id: editItem ? patient.prescriptions[editItem.index].id : Date.now(),
-      date: getPreciseDateTime(),
-      medicines: formMedicines,
-      history: editItem
-        ? [
-            ...(patient.prescriptions[editItem.index].history || []),
-            { medicines: patient.prescriptions[editItem.index].medicines, editDate: getPreciseDateTime() },
-          ]
-        : [],
+    const payload = {
+      appointment: null, // or selected appointment ID if you have
+      patient: patient.id,
+      doctor: null, // you can add selected doctor ID here
+      items: formMedicines.map(m => ({
+        medicine: m.medicine,
+        dosage: m.dosage,
+        frequency: m.frequency,
+        notes: m.notes,
+      }))
     };
 
-    const updatedPrescriptions = editItem
-      ? (patient.prescriptions || []).map((p, idx) => (idx === editItem.index ? newPrescription : p))
-      : [...(patient.prescriptions || []), newPrescription];
+    const url = editItem ? `${API_BASE}/prescriptions/${editItem.id}/` : `${API_BASE}/prescriptions/`;
+    const method = editItem ? "PUT" : "POST";
 
-    setPatient({ ...patient, prescriptions: updatedPrescriptions });
+    fetch(url, {
+      method,
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    })
+      .then(res => res.json())
+      .then(data => {
+        // update patient prescriptions
+        const updatedPrescriptions = editItem
+          ? patient.prescriptions.map(p => (p.id === editItem.id ? {
+              ...p,
+              medicines: data.items,
+              date: new Date(data.created_at).toLocaleString()
+            } : p))
+          : [...(patient.prescriptions || []), {
+              id: data.id,
+              medicines: data.items,
+              date: new Date(data.created_at).toLocaleString(),
+              history: []
+            }];
 
-    setFormMedicines([]);
-    setCurrentMedicine({ medicine: "", dosage: "", frequency: "", notes: "" });
-    setEditItem(null);
-    setShowAdd(false);
+        setPatient({ ...patient, prescriptions: updatedPrescriptions });
+
+        setFormMedicines([]);
+        setCurrentMedicine({ medicine: "", dosage: "", frequency: "", notes: "" });
+        setEditItem(null);
+        setShowAdd(false);
+      })
+      .catch(err => console.error(err));
   };
 
   const handleEditSetup = (index) => {
     const presc = patient.prescriptions[index];
-    setEditItem({ index });
+    setEditItem({ id: presc.id, index });
     setFormMedicines(presc.medicines || []);
     setShowAdd(true);
   };
@@ -121,9 +131,9 @@ export default function PrescriptionTab({ patient, setPatient }) {
         </div>
 
         <div>
-          <h3 className="text-lg font-semibold mt-4">Previous Versions ({item.history.length})</h3>
+          <h3 className="text-lg font-semibold mt-4">Previous Versions ({item.history?.length || 0})</h3>
           <div className="max-h-96 overflow-y-auto space-y-3">
-            {item.history.length > 0 ? item.history.map((h, i) => (
+            {item.history?.length > 0 ? item.history.map((h, i) => (
               <div key={i} className="border-l-4 border-gray-300 p-3 bg-gray-50 rounded-r-lg">
                 <p className="text-sm text-gray-500 font-medium flex items-center">
                   <Clock className="w-3 h-3 mr-1"/>Edited: {h.editDate}
@@ -212,6 +222,7 @@ export default function PrescriptionTab({ patient, setPatient }) {
       )}
 
       {/* Display saved prescriptions */}
+      {loading && <p>Loading...</p>}
       {(patient.prescriptions || []).map((presc, idx) => (
         <div key={presc.id} className="border-l-4 border-blue-500 p-4 bg-white rounded-r-xl shadow-sm flex justify-between items-start">
           <div className="flex-1 mr-4">
@@ -235,5 +246,3 @@ export default function PrescriptionTab({ patient, setPatient }) {
     </div>
   );
 }
-
-

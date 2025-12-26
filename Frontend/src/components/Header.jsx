@@ -92,15 +92,6 @@ const Header = ({ isCollapsed, onLogout }) => {
           </p>
         </div>
 
-        {/* Search Bar */}
-        <div className="hidden lg:flex items-center bg-white/10 backdrop-blur-sm rounded-xl px-4 py-2.5 w-96 border border-blue-600">
-          <Search className="w-5 h-5 text-blue-300 mr-3" />
-          <input
-            type="text"
-            placeholder="Search patients, appointments, doctors..."
-            className="bg-transparent outline-none flex-1 text-sm text-white placeholder-blue-300"
-          />
-        </div>
       </div>
 
       {/* Right Section */}
@@ -115,17 +106,6 @@ const Header = ({ isCollapsed, onLogout }) => {
           </div>
         </button>
 
-        {/* Help */}
-        <button 
-          onClick={handleHelp}
-          className="p-2.5 rounded-lg hover:bg-white/10 transition-colors group relative"
-        >
-          <HelpCircle className="w-5 h-5 text-blue-200" />
-          <div className="absolute top-full right-0 mt-2 px-3 py-1.5 bg-blue-800 text-white text-xs rounded-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 whitespace-nowrap z-50 border border-blue-700">
-            Help & Support
-            <div className="absolute bottom-full right-3 -mb-1 w-2 h-2 bg-blue-800 transform rotate-45 border-r border-b border-blue-700"></div>
-          </div>
-        </button>
 
         {/* User Profile */}
         <div className="relative" ref={menuRef}>

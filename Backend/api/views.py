@@ -16,7 +16,8 @@ from .serializers import (
     ClinicPatientSerializer,
     AppointmentSerializer,
     DoctorSerializer,
-    TimeSlotSerializer
+    TimeSlotSerializer,
+    ClinicPatientMedicalRecordSerializer,
 )
 
 from .models import ClinicUser, Patient, Appointment, ClinicPatient
@@ -303,3 +304,10 @@ def get_doctor_availability(request, doctor_id):
         "days": days,
         "availability": availability,
     })
+from rest_framework.permissions import IsAuthenticated
+
+class ClinicPatientMedicalRecordView(generics.RetrieveAPIView):
+    queryset = ClinicPatient.objects.all()
+    serializer_class = ClinicPatientMedicalRecordSerializer
+    lookup_field = "patient_id"
+    permission_classes = [IsAuthenticated]

@@ -42,6 +42,7 @@ INSTALLED_APPS = [
     'rest_framework.authtoken',
     'api',
     'stock',
+    'medical_records',
     'django_filters',
 ]
 

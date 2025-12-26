@@ -3,7 +3,6 @@ import { useNavigate } from "react-router-dom";
 import { 
   CalendarDays, 
   Users, 
-  ChevronRight, 
   Package,
   AlertTriangle,
   CalendarClock,
@@ -11,8 +10,6 @@ import {
   Stethoscope,
   HeartPulse,
   Clock,
-  UserPlus,
-  Activity,
   BarChart3,
   CheckCircle,
   XCircle,
@@ -87,7 +84,6 @@ const Dashboard = () => {
 
     const data = await res.json();
 
-    // ✅ FIX: always set an array
     if (Array.isArray(data)) {
       setStock(data);
     } else if (Array.isArray(data.results)) {

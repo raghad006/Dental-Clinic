@@ -11,6 +11,7 @@ import {
   Cake,
   Mars,
   Venus,
+  CalendarPlus // Added CalendarPlus icon
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import PaginatedTable from "./components/PaginatedTable";
@@ -147,6 +148,11 @@ const AllPatients = () => {
     currentPage * itemsPerPage
   );
 
+  // Function to handle appointment scheduling
+  const handleScheduleAppointment = (patientId) => {
+    navigate(`/appointments/add?patient_id=${patientId}`);
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-white p-4 md:p-6">
       <div className="max-w-7xl mx-auto">
@@ -172,7 +178,7 @@ const AllPatients = () => {
                 Patients
               </h1>
               <p className="text-blue-600 mt-1">
-                View all patient records
+                View all patient records and schedule appointments
               </p>
             </div>
           </div>
@@ -196,12 +202,20 @@ const AllPatients = () => {
               </div>
             </div>
 
-            <button
-              onClick={() => navigate("/patients/add")}
-              className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 whitespace-nowrap"
-            >
-              <UserPlus size={20} /> Add New Patient
-            </button>
+            <div className="flex flex-col sm:flex-row gap-3">
+              <button
+                onClick={() => navigate("/appointments/add")}
+                className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 whitespace-nowrap"
+              >
+                <CalendarPlus size={18} /> New Appointment
+              </button>
+              <button
+                onClick={() => navigate("/patients/add")}
+                className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 whitespace-nowrap"
+              >
+                <UserPlus size={18} /> Add New Patient
+              </button>
+            </div>
           </div>
 
           {/* Search & Filters */}
@@ -347,9 +361,9 @@ const AllPatients = () => {
                     <div className="col-span-2">Patient ID</div>
                     <div className="col-span-3">Name</div>
                     <div className="col-span-1">Age</div>
-                    <div className="col-span-2">Gender</div>
+                    <div className="col-span-1">Gender</div>
                     <div className="col-span-2">Phone</div>
-                    <div className="col-span-2 text-right">Actions</div>
+                    <div className="col-span-3 text-right">Actions</div>
                   </div>
                 </div>
 
@@ -384,7 +398,7 @@ const AllPatients = () => {
                         </div>
                         
                         {/* Gender */}
-                        <div className="col-span-2">
+                        <div className="col-span-1">
                           <span className={`px-3 py-1.5 rounded-full text-xs font-semibold ${
                             p.gender === "Male" 
                               ? "bg-blue-100 text-blue-700" 
@@ -404,14 +418,24 @@ const AllPatients = () => {
                           </div>
                         </div>
                         
-                        {/* Actions - Only View Button */}
-                        <div className="col-span-2 text-right">
-                          <button
-                            onClick={() => navigate(`/patients/${p.patient_id}`)}
-                            className="flex items-center gap-1 px-4 py-2 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white rounded-lg text-xs font-medium transition-all shadow-sm hover:shadow-md"
-                          >
-                            <User size={12} /> View Profile
-                          </button>
+                        {/* Actions - View Profile & Schedule Appointment Buttons */}
+                        <div className="col-span-3 text-right">
+                          <div className="flex items-center justify-end gap-2">
+                            <button
+                              onClick={() => handleScheduleAppointment(p.patient_id)}
+                              className="flex items-center gap-1 px-3 py-2 bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white rounded-lg text-xs font-medium transition-all shadow-sm hover:shadow-md"
+                              title="Schedule Appointment"
+                            >
+                              <CalendarPlus size={12} /> Schedule
+                            </button>
+                            <button
+                              onClick={() => navigate(`/patients/${p.patient_id}`)}
+                              className="flex items-center gap-1 px-3 py-2 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white rounded-lg text-xs font-medium transition-all shadow-sm hover:shadow-md"
+                              title="View Patient Profile"
+                            >
+                              <User size={12} /> View
+                            </button>
+                          </div>
                         </div>
                       </div>
                     ))

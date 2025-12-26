@@ -81,11 +81,11 @@ export default function App() {
 
               {/* Medical records — ONLY doctor */}
               <Route
-                path="/patients/:id/medical-record"
-                element={
-                  user?.role === "doctor" ? <MedicalRecord /> : <Navigate to="/" replace />
-                }
-              />
+  path="/patients/:patient_id/medical-record"
+  element={user?.role === "doctor" ? <MedicalRecord /> : <Navigate to="/" replace />}
+/>
+
+          
 
               <Route path="/appointments" element={<Appointments />} />
                       <Route path="/appointments/add" element={<AddAppointmentPage />} /> {/* Add this route */}
