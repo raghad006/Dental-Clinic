@@ -28,7 +28,7 @@ import Doctors from "./components/Doctors";
 import Billing from "./components/Billing";
 import CreateInvoice from "./components/CreateInvoice";
 import StaffShifts from "./components/StaffShifts";
-
+import DentalChart from "./components/DentalChart";
 export default function App() {
   const { user, setUser, logout } = useContext(UserContext);
   const [isCollapsed, setIsCollapsed] = useState(true);
@@ -89,7 +89,7 @@ export default function App() {
 
               <Route path="/appointments" element={<Appointments />} />
                       <Route path="/appointments/add" element={<AddAppointmentPage />} /> {/* Add this route */}
-
+<Route path="/charting" element={<DentalChart />} />
               <Route path="/doctors" element={<Doctors />} />
               <Route path="/billing" element={<Billing />} />
               <Route path="/billing/create" element={<CreateInvoice />} />

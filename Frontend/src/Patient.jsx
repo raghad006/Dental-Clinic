@@ -20,6 +20,8 @@ import {
   Stethoscope,
   Award,
   TrendingUp,
+  Activity,
+  HeartPulse,
 } from "lucide-react";
 import { useNavigate, useParams } from "react-router-dom";
 
@@ -70,37 +72,55 @@ const Patient = () => {
           Authorization: "Bearer " + localStorage.getItem("access_token"),
         };
 
-        const [patientRes, upcomingRes, previousRes] = await Promise.all([
-          fetch(`http://127.0.0.1:8000/api/clinic-patient/${id}/`, {
-            headers: authHeaders,
-          }),
-          fetch(
-            `http://127.0.0.1:8000/api/appointments/?patient_id=${id}&status=upcoming`,
-            { headers: authHeaders }
-          ),
-          fetch(
-            `http://127.0.0.1:8000/api/appointments/?patient_id=${id}&status=previous`,
-            { headers: authHeaders }
-          ),
-        ]);
-
+        // Fetch patient data
+        const patientRes = await fetch(`http://127.0.0.1:8000/api/clinic-patient/${id}/`, {
+          headers: authHeaders,
+        });
+        
         if (!patientRes.ok) throw new Error("Failed to fetch patient data");
-
         const patientData = await patientRes.json();
         setPatient(patientData);
         setEditedPatient(patientData);
 
-        const upcomingData = upcomingRes.ok ? await upcomingRes.json() : [];
-        const previousData = previousRes.ok ? await previousRes.json() : [];
+        // Fetch all appointments for this patient
+        const appointmentsRes = await fetch(
+          `http://127.0.0.1:8000/api/appointments/?patient_id=${id}`,
+          { headers: authHeaders }
+        );
         
-        // Add placeholder image for previous appointments
-        const previousWithImages = previousData.map((appt) => ({
-          ...appt,
-          image: "/Prescription.jpg"
-        }));
+        let allAppointments = [];
+        if (appointmentsRes.ok) {
+          allAppointments = await appointmentsRes.json();
+        }
+
+        // Separate upcoming and previous appointments
+        const now = new Date();
+        const upcoming = [];
+        const previous = [];
+
+        allAppointments.forEach(appt => {
+          const appointmentDate = new Date(appt.date);
+          // Check if appointment is today or in the future
+          const isUpcoming = appointmentDate >= now || 
+                            (appointmentDate.toDateString() === now.toDateString() && 
+                             appt.status !== "Completed");
+          
+          if (isUpcoming && appt.status !== "Cancelled") {
+            upcoming.push(appt);
+          } else {
+            previous.push(appt);
+          }
+        });
+
+        // Sort upcoming by date (ascending)
+        upcoming.sort((a, b) => new Date(a.date) - new Date(b.date));
         
-        setUpcomingAppointments(upcomingData);
-        setPreviousAppointments(previousWithImages);
+        // Sort previous by date (descending)
+        previous.sort((a, b) => new Date(b.date) - new Date(a.date));
+
+        setUpcomingAppointments(upcoming);
+        setPreviousAppointments(previous);
+
       } catch (err) {
         console.error(err);
         alert("Error fetching patient data or appointments.");
@@ -115,15 +135,39 @@ const Patient = () => {
   /* ---------------- Memoized derived values ---------------- */
   const lastVisit = useMemo(() => {
     if (!previousAppointments.length) return null;
-    return previousAppointments[previousAppointments.length - 1];
+    // Find the most recent completed appointment
+    const completedAppointments = previousAppointments.filter(
+      appt => appt.status === "Completed"
+    );
+    
+    if (completedAppointments.length > 0) {
+      return completedAppointments[0]; // Already sorted by date descending
+    }
+    
+    // If no completed appointments, return the most recent one
+    return previousAppointments[0];
   }, [previousAppointments]);
+
+  const totalVisits = useMemo(() => {
+    return previousAppointments.filter(appt => 
+      appt.status === "Completed" || appt.status === "Checked In"
+    ).length;
+  }, [previousAppointments]);
+
+  const upcomingCount = useMemo(() => {
+    return upcomingAppointments.filter(appt => 
+      appt.status !== "Cancelled"
+    ).length;
+  }, [upcomingAppointments]);
 
   /* ---------------- helpers ---------------- */
   const getStatusColor = (status) => {
     switch (status?.toLowerCase()) {
       case "confirmed":
       case "completed":
+      case "checked in":
         return "bg-green-100 text-green-700 border border-green-200";
+      case "awaiting":
       case "pending":
       case "in progress":
         return "bg-yellow-100 text-yellow-700 border border-yellow-200";
@@ -146,9 +190,36 @@ const Patient = () => {
         return "Confirmed";
       case "completed":
         return "Completed";
+      case "pending":
+        return "Pending";
+      case "in progress":
+        return "In Progress";
       default:
         return status || "Scheduled";
     }
+  };
+
+  const formatDate = (dateString) => {
+    if (!dateString) return "N/A";
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric'
+    });
+  };
+
+  const formatTime = (timeString) => {
+    if (!timeString) return "N/A";
+    // Remove seconds if present
+    const time = timeString.split(':').slice(0, 2).join(':');
+    return time;
+  };
+
+  const formatDateTime = (dateString, timeString) => {
+    const formattedDate = formatDate(dateString);
+    const formattedTime = formatTime(timeString);
+    return `${formattedDate} at ${formattedTime}`;
   };
 
   const hasChanges = () => {
@@ -380,6 +451,18 @@ const Patient = () => {
                       <span className="font-medium text-gray-700">{patient.phone}</span>
                     )}
                   </div>
+
+                  {/* Last Visit */}
+                  {lastVisit && (
+                    <div className="flex items-center gap-2">
+                      <div className="p-2 bg-emerald-100 rounded-lg">
+                        <Activity className="w-4 h-4 text-emerald-600" />
+                      </div>
+                      <span className="font-medium text-gray-700">
+                        Last Visit: {formatDate(lastVisit.date)}
+                      </span>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -437,11 +520,16 @@ const Patient = () => {
                 <CalendarClock className="w-5 h-5 text-white" />
               </div>
               <h3 className="text-xl font-bold text-gray-800">Upcoming Appointments</h3>
+              {upcomingCount > 0 && (
+                <span className="ml-auto px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm font-semibold">
+                  {upcomingCount} upcoming
+                </span>
+              )}
             </div>
 
             <div className="space-y-4">
-              {upcomingAppointments.length > 0 ? (
-                upcomingAppointments.map((appt) => (
+              {upcomingCount > 0 ? (
+                upcomingAppointments.filter(appt => appt.status !== "Cancelled").map((appt) => (
                   <div
                     key={appt.id || `upcoming-${appt.date}-${appt.time}`}
                     className={`bg-white border border-blue-100 rounded-xl p-5 hover:shadow-lg transition-all cursor-pointer ${
@@ -470,7 +558,7 @@ const Patient = () => {
                         <div>
                           <div className="flex items-center gap-2 mb-1">
                             <p className="font-bold text-gray-800">
-                              {appt.type || "General Checkup"}
+                              {appt.procedure_type || "General Checkup"}
                             </p>
                             <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold ${getStatusColor(appt.status)}`}>
                               {getStatusText(appt.status)}
@@ -478,11 +566,11 @@ const Patient = () => {
                           </div>
                           <p className="text-sm text-gray-600 flex items-center gap-2 mb-1">
                             <Stethoscope className="w-3.5 h-3.5 text-blue-500" />
-                            with {appt.doctor_name || "Dr. Smith"}
+                            with {appt.doctor_name || appt.doctor?.full_display_name || "Doctor"}
                           </p>
                           <p className="text-sm text-gray-500 flex items-center gap-2">
                             <Clock className="w-3.5 h-3.5 text-blue-500" />
-                            {appt.time || "10:00 AM"}
+                            {formatTime(appt.time)}
                           </p>
                         </div>
                       </div>
@@ -498,21 +586,19 @@ const Patient = () => {
                         <div className="grid grid-cols-2 gap-4 text-sm">
                           <div>
                             <p className="text-gray-500 mb-1">Doctor</p>
-                            <p className="font-medium text-gray-800">{appt.doctor_name || "N/A"}</p>
+                            <p className="font-medium text-gray-800">{appt.doctor_name || appt.doctor?.full_display_name || "N/A"}</p>
                           </div>
                           <div>
-                            <p className="text-gray-500 mb-1">Location</p>
-                            <p className="font-medium text-gray-800">{appt.location || "Main Clinic"}</p>
+                            <p className="text-gray-500 mb-1">Date & Time</p>
+                            <p className="font-medium text-gray-800">{formatDateTime(appt.date, appt.time)}</p>
                           </div>
                           <div>
-                            <p className="text-gray-500 mb-1">Payment Type</p>
-                            <p className="font-medium text-gray-800">{appt.payment_type || "Insurance"}</p>
+                            <p className="text-gray-500 mb-1">Procedure Type</p>
+                            <p className="font-medium text-gray-800">{appt.procedure_type || "N/A"}</p>
                           </div>
                           <div>
-                            <p className="text-gray-500 mb-1">Payment Status</p>
-                            <span className={`px-2 py-1 rounded-full text-xs font-semibold ${getStatusColor(appt.payment_status)}`}>
-                              {appt.payment_status || "Pending"}
-                            </span>
+                            <p className="text-gray-500 mb-1">Notes</p>
+                            <p className="font-medium text-gray-800">{appt.notes || "No notes"}</p>
                           </div>
                         </div>
                       </div>
@@ -529,32 +615,53 @@ const Patient = () => {
             </div>
           </div>
           
-          {/* Loyalty Points & Stats - Takes 1/3 width */}
+          {/* Stats Sidebar - Takes 1/3 width */}
           <div className="space-y-6">
-            {/* Loyalty Points Card */}
+            {/* Last Visit Card */}
             <div className="bg-gradient-to-b from-blue-900 to-blue-800 rounded-2xl p-6 text-white shadow-2xl">
               <div className="flex items-center gap-3 mb-4">
                 <div className="p-2 bg-blue-700 rounded-lg">
-                  <Award className="w-5 h-5" />
+                  <Activity className="w-5 h-5" />
                 </div>
-                <h3 className="text-lg font-bold">Loyalty Points</h3>
+                <h3 className="text-lg font-bold">Last Visit</h3>
               </div>
               
-              <div className="text-center mb-6">
-                <p className="text-5xl font-bold mb-2">{loyaltyPoints.toLocaleString()}</p>
-                <p className="text-blue-300 text-sm">Total Points</p>
+              <div className="text-center mb-4">
+                {lastVisit ? (
+                  <>
+                    <p className="text-4xl font-bold mb-2">
+                      {new Date(lastVisit.date).toLocaleDateString('en-US', { 
+                        month: 'short', 
+                        day: 'numeric' 
+                      })}
+                    </p>
+                    <p className="text-blue-300 text-sm">
+                      {lastVisit.procedure_type || "General Checkup"}
+                    </p>
+                    <p className="text-blue-300 text-xs mt-1">
+                      with {lastVisit.doctor_name || lastVisit.doctor?.full_display_name || "Doctor"}
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-3xl font-bold mb-2">N/A</p>
+                    <p className="text-blue-300 text-sm">No previous visits</p>
+                  </>
+                )}
               </div>
               
-              <div className="space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span className="text-blue-300">This Month</span>
-                  <span className="font-semibold">+125</span>
+              {lastVisit && (
+                <div className="space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-blue-300">Time</span>
+                    <span className="font-semibold">{formatTime(lastVisit.time)}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-blue-300">Status</span>
+                    <span className="font-semibold">{getStatusText(lastVisit.status)}</span>
+                  </div>
                 </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-blue-300">Level</span>
-                  <span className="font-semibold">Gold Member</span>
-                </div>
-              </div>
+              )}
             </div>
 
             {/* Patient Stats Card */}
@@ -568,24 +675,64 @@ const Patient = () => {
               
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
-                  <span className="text-gray-600">Total Visits</span>
-                  <span className="font-bold text-blue-600">{previousAppointments.length}</span>
+                  <div className="flex items-center gap-2">
+                    <Activity className="w-4 h-4 text-blue-500" />
+                    <span className="text-gray-600">Total Visits</span>
+                  </div>
+                  <span className="font-bold text-blue-600">{totalVisits}</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-gray-600">Upcoming</span>
-                  <span className="font-bold text-green-600">{upcomingAppointments.length}</span>
+                  <div className="flex items-center gap-2">
+                    <CalendarClock className="w-4 h-4 text-green-500" />
+                    <span className="text-gray-600">Upcoming</span>
+                  </div>
+                  <span className="font-bold text-green-600">{upcomingCount}</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-gray-600">Last Visit</span>
-                  <span className="font-bold text-gray-800">
-                    {lastVisit
-                      ? new Date(lastVisit.date).toLocaleDateString('en-US', { 
-                          month: 'short', 
-                          day: 'numeric' 
-                        })
-                      : 'N/A'
-                    }
+                  <div className="flex items-center gap-2">
+                    <HeartPulse className="w-4 h-4 text-emerald-500" />
+                    <span className="text-gray-600">Completed</span>
+                  </div>
+                  <span className="font-bold text-emerald-600">
+                    {previousAppointments.filter(appt => appt.status === "Completed").length}
                   </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <RotateCcw className="w-4 h-4 text-amber-500" />
+                    <span className="text-gray-600">Cancelled</span>
+                  </div>
+                  <span className="font-bold text-amber-600">
+                    {previousAppointments.filter(appt => appt.status === "Cancelled").length}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Loyalty Points Card */}
+            <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-2xl p-6 border border-blue-100">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="p-2 bg-gradient-to-r from-amber-500 to-amber-600 rounded-lg">
+                  <Award className="w-5 h-5 text-white" />
+                </div>
+                <h3 className="text-lg font-bold text-gray-800">Loyalty Points</h3>
+              </div>
+              
+              <div className="text-center mb-4">
+                <p className="text-4xl font-bold mb-2 text-amber-600">
+                  {loyaltyPoints.toLocaleString()}
+                </p>
+                <p className="text-gray-600 text-sm">Total Points</p>
+              </div>
+              
+              <div className="space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-500">This Month</span>
+                  <span className="font-semibold text-green-600">+125</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-500">Level</span>
+                  <span className="font-semibold text-amber-600">Gold Member</span>
                 </div>
               </div>
             </div>
@@ -601,7 +748,7 @@ const Patient = () => {
               </div>
               <h3 className="text-xl font-bold text-gray-800">Previous Appointments</h3>
               <span className="ml-auto px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm font-semibold">
-                {previousAppointments.length} visits
+                {previousAppointments.length} total
               </span>
             </div>
 
@@ -609,9 +756,10 @@ const Patient = () => {
               <div className="bg-gradient-to-r from-blue-50 to-blue-100 border-b border-blue-200">
                 <div className="grid grid-cols-12 gap-4 p-4 text-sm font-semibold text-blue-800">
                   <div className="col-span-3">Date & Time</div>
-                  <div className="col-span-3">Doctor</div>
+                  <div className="col-span-2">Doctor</div>
                   <div className="col-span-3">Treatment</div>
-                  <div className="col-span-3 text-right">Actions</div>
+                  <div className="col-span-2">Status</div>
+                  <div className="col-span-2 text-right">Actions</div>
                 </div>
               </div>
 
@@ -629,51 +777,56 @@ const Patient = () => {
                     <div className="col-span-3">
                       <div className="flex items-center gap-2">
                         <Calendar className="w-4 h-4 text-blue-500" />
-                        <span className="font-medium text-gray-800">{appt.date || "N/A"}</span>
+                        <span className="font-medium text-gray-800">{formatDate(appt.date)}</span>
                       </div>
-                      <div className="text-sm text-blue-600 mt-1">{appt.time || "N/A"}</div>
+                      <div className="text-sm text-blue-600 mt-1">{formatTime(appt.time)}</div>
                     </div>
                     
-                    <div className="col-span-3">
+                    <div className="col-span-2">
                       <div className="flex items-center gap-2">
                         <div className="p-1 bg-blue-100 rounded-lg">
                           <Stethoscope className="w-3.5 h-3.5 text-blue-600" />
                         </div>
-                        <span className="font-medium text-gray-800">{appt.doctor_name || "N/A"}</span>
+                        <span className="font-medium text-gray-800">{appt.doctor_name || appt.doctor?.full_display_name || "N/A"}</span>
                       </div>
                     </div>
                     
                     <div className="col-span-3">
-                      <span className={`px-3 py-1.5 rounded-lg text-xs font-semibold ${getStatusColor(appt.status)}`}>
-                        {getStatusText(appt.status) || appt.type || "N/A"}
+                      <p className="font-medium text-gray-800">{appt.procedure_type || "N/A"}</p>
+                      <p className="text-sm text-gray-500 truncate">{appt.notes || "No notes"}</p>
+                    </div>
+                    
+                    <div className="col-span-2">
+                      <span className={`px-2 py-1 rounded-full text-xs font-semibold ${getStatusColor(appt.status)}`}>
+                        {getStatusText(appt.status)}
                       </span>
                     </div>
                     
-                    <div className="col-span-3 text-right">
+                    <div className="col-span-2 text-right">
                       <div className="flex items-center justify-end gap-2">
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
-                            openModal(appt.image);
+                            if (appt.image) {
+                              openModal(appt.image);
+                            } else {
+                              alert("No prescription image available for this appointment.");
+                            }
                           }}
                           className="flex items-center gap-1 px-3 py-1.5 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-lg text-xs font-medium transition-all"
+                          title="View Details"
                         >
                           <Eye className="w-3.5 h-3.5" /> View
                         </button>
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
-                            // Implement download functionality
-                            const link = document.createElement('a');
-                            link.href = appt.image;
-                            link.download = `prescription-${appt.date || 'record'}.jpg`;
-                            document.body.appendChild(link);
-                            link.click();
-                            document.body.removeChild(link);
+                            navigate(`/appointments/${appt.id}`);
                           }}
                           className="flex items-center gap-1 px-3 py-1.5 bg-green-100 hover:bg-green-200 text-green-700 rounded-lg text-xs font-medium transition-all"
+                          title="Open Appointment"
                         >
-                          <Download className="w-3.5 h-3.5" /> Download
+                          <FileText className="w-3.5 h-3.5" /> Open
                         </button>
                       </div>
                     </div>
@@ -681,17 +834,25 @@ const Patient = () => {
                     {expandedPrevious === appt.id && (
                       <div className="col-span-12 mt-4 pt-4 border-t border-blue-200">
                         <div className="bg-white rounded-lg p-4 border border-blue-100">
-                          <h4 className="font-semibold text-gray-800 mb-2">Appointment Details</h4>
-                          <div className="grid grid-cols-2 gap-4 text-sm">
+                          <h4 className="font-semibold text-gray-800 mb-3">Appointment Details</h4>
+                          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                             <div>
                               <p className="text-gray-500 mb-1">Doctor</p>
-                              <p className="font-medium text-gray-800">{appt.doctor_name || "N/A"}</p>
+                              <p className="font-medium text-gray-800">{appt.doctor_name || appt.doctor?.full_display_name || "N/A"}</p>
                             </div>
                             <div>
-                              <p className="text-gray-500 mb-1">Procedure</p>
-                              <p className="font-medium text-gray-800">{appt.type || "N/A"}</p>
+                              <p className="text-gray-500 mb-1">Date & Time</p>
+                              <p className="font-medium text-gray-800">{formatDateTime(appt.date, appt.time)}</p>
                             </div>
-                            <div className="col-span-2">
+                            <div>
+                              <p className="text-gray-500 mb-1">Procedure Type</p>
+                              <p className="font-medium text-gray-800">{appt.procedure_type || "N/A"}</p>
+                            </div>
+                            <div>
+                              <p className="text-gray-500 mb-1">Status</p>
+                              <p className="font-medium text-gray-800">{getStatusText(appt.status)}</p>
+                            </div>
+                            <div className="col-span-2 md:col-span-4">
                               <p className="text-gray-500 mb-1">Notes</p>
                               <p className="font-medium text-gray-800 bg-blue-50 p-3 rounded-lg">
                                 {appt.notes || "No notes available."}
