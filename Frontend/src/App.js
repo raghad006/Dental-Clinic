@@ -25,8 +25,6 @@ import AllPatients from "./AllPatients";
 import Patient from "./Patient";
 import Appointments from "./Appointments";
 import Doctors from "./components/Doctors";
-import Billing from "./components/Billing";
-import CreateInvoice from "./components/CreateInvoice";
 import StaffShifts from "./components/StaffShifts";
 import DentalChart from "./components/DentalChart";
 export default function App() {
@@ -91,8 +89,6 @@ export default function App() {
                       <Route path="/appointments/add" element={<AddAppointmentPage />} /> {/* Add this route */}
 <Route path="/charting" element={<DentalChart />} />
               <Route path="/doctors" element={<Doctors />} />
-              <Route path="/billing" element={<Billing />} />
-              <Route path="/billing/create" element={<CreateInvoice />} />
               <Route path="/staffshifts" element={<StaffShifts />} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>

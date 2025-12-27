@@ -26,7 +26,6 @@ const Sidebar = ({ isCollapsed, setIsCollapsed }) => {
     { name: "Stock", icon: Package, path: "/Stock" },
     { name: "Doctors", icon: Stethoscope, path: "/Doctors" },
     { name: "Staff", icon: Users, path: "/StaffShifts" },
-    { name: "Billing", icon: Receipt, path: "/Billing" },
   ];
 
   const isActive = (path) => {
