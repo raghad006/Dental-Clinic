@@ -1,20 +1,44 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import axios from "axios"
 import { User } from 'lucide-react';
 
 const token = "YOUR_JWT_TOKEN_HERE";
 
 // Save a new examination
+// In your React component (DentalChart.jsx), update these API functions:
+
+// Save a new examination
 const saveExamination = async (examData) => {
   try {
     const res = await axios.post(
-      'http://localhost:8000/api/examinations/?patient=${patient.id}',
+      'http://localhost:8000/api/examinations/add/',  // Changed URL
       examData,
       { headers: { Authorization: `Bearer ${token}` } }
     );
     return res.data;
   } catch (err) {
-    console.error(err.response.data);
+    console.error("Save examination error:", err.response?.data || err.message);
+    throw err;
+  }
+};
+
+// Get examinations for a patient
+const getExaminations = async (patientId) => {
+  try {
+    if (!patientId) {
+      console.error("No patient ID provided");
+      return [];
+    }
+    
+    const res = await axios.get(
+      `http://localhost:8000/api/patient/${patientId}/examinations/`,  // Use patient-specific endpoint
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
+    return res.data;
+  } catch (err) {
+    console.error("Get examinations error:", err.response?.data || err.message);
+    // Return empty array instead of throwing to prevent UI crash
+    return [];
   }
 };
 
@@ -22,15 +46,17 @@ const saveExamination = async (examData) => {
 const saveTeeth = async (examId, teethData) => {
   try {
     const res = await axios.post(
-      "http://localhost:8000/api/tooth-examinations/bulk/",
+      "http://localhost:8000/api/tooth-examinations/bulk/",  // This endpoint might not exist yet
       { examination: examId, teeth: teethData },
       { headers: { Authorization: `Bearer ${token}` } }
     );
     return res.data;
   } catch (err) {
-    console.error(err.response.data);
+    console.error("Save teeth error:", err.response?.data || err.message);
+    throw err;
   }
 };
+
 
 const PATHS = {
   molar: "M505 939 c-76 -19 -84 -19 -161 -4 -65 12 -87 13 -108 4 -14 -7 -26 -15 -26 -18 0 -3 -11 -19 -25 -35 -54 -63 -57 -149 -10 -332 16 -59 26 -128 26 -169 1 -134 37 -252 92 -303 55 -52 84 -10 94 133 7 106 17 107 27 4 8 -69 35 -129 61 -129 29 0 47 47 54 142 6 93 6 93 18 -31 14 -146 26 -168 70 -135 28 22 46 53 22 39 -8 -5 -11 -4 -6 1 5 5 14 9 20 9 7 0 23 27 36 60 20 50 26 85 32 210 5 112 12 165 28 209 15 42 21 83 21 145 0 117 -15 146 -100 189 -35 17 -69 32 -75 31 -5 0 -46 -9 -90 -20z m132 -7 c7 -4 -30 -16 -85 -26 -74 -14 -105 -16 -132 -8 -35 10 -35 10 0 11 19 1 58 8 85 15 57 16 114 19 132 8z m-318 -6 c-2 -2 -26 -6 -54 -10 -34 -4 -45 -3 -35 4 14 9 99 15 89 6z m54 -13 c-7 -2 -21 -2 -30 0 -10 3 -4 5 12 5 17 0 24 -2 18 -5z m352 -37 c36 -45 38 -197 6 -294 -11 -32 -22 -74 -26 -94 -5 -26 -11 -35 -21 -31 -11 4 -14 -14 -14 -100 0 -58 -4 -117 -10 -132 -6 -15 -6 -24 -1 -20 30 18 16 -46 -15 -70 -7 -5 -14 -17 -16 -25 -4 -18 -23 -40 -36 -40 -12 0 -20 29 -27 105 -11 111 -28 210 -42 237 -16 34 -44 50 -64 37 -20 -13 -31 -11 -23 4 4 6 4 9 0 5 -4 -3 -8 -10 -8 -15 0 -4 -9 -25 -20 -46 -16 -32 -34 -128 -43 -227 -3 -35 -25 -100 -34 -100 -14 0 -48 45 -68 90 -28 62 -36 87 -25 75 6 -5 12 -19 15 -30 3 -11 4 0 2 25 -4 63 12 158 35 203 20 37 20 37 -8 37 -73 1 -86 22 -113 192 -16 108 -9 173 25 206 24 24 33 27 99 26 39 0 106 -4 147 -8 54 -5 90 -3 130 8 76 20 130 14 155 -18z m-457 -428 c10 15 11 15 5 -3 -3 -11 -10 -25 -15 -31 -4 -6 -6 -19 -2 -28 4 -9 1 -16 -6 -16 -7 0 -10 -7 -6 -17 4 -9 3 -37 -1 -62 -7 -44 -7 -45 -14 -16 -4 17 -7 68 -8 114 -1 82 -1 84 17 63 17 -19 19 -19 30 -4z m247 -157 c-8 -137 -12 -166 -30 -181 -23 -19 -43 27 -62 144 -15 103 -15 110 2 142 21 39 53 48 78 21 15 -17 17 -33 12 -126z m185 84 c0 -25 -4 -45 -10 -45 -11 0 -14 73 -3 83 11 12 13 8 13 -38z m-5 -111 c-3 -46 -10 -62 -21 -51 -4 4 -1 13 5 21 7 8 10 20 6 26 -6 9 2 50 10 50 2 0 2 -20 0 -46z",
@@ -750,7 +776,7 @@ const RemovalNotes = ({ notes, onNotesChange, onSkip }) => {
   );
 };
 
-const DentalChart = ( patient, patientId) => {
+const DentalChart = ({ patient }) => {
   const [activeTooth, setActiveTooth] = useState(11);
   const [activeTab, setActiveTab] = useState('measurements');
   const [activeProcedure, setActiveProcedure] = useState(null);
@@ -761,15 +787,19 @@ const DentalChart = ( patient, patientId) => {
   const [clinicalNote, setClinicalNote] = useState('');
   const [removalNotes, setRemovalNotes] = useState('');
   const [skipRemovalNotes, setSkipRemovalNotes] = useState(false);
-  const [teethData, setTeethData] = useState({});
-  const [examinationId, setExaminationId] = useState(null);
+  const [teeth, setTeeth] = useState([]); // initialize teeth state
+  const [exams, setExams] = useState([]);
 
-  const [soapData, setSoapData] = useState({
-    subjective: '',
-    objective: '',
-    assessment: '',
-    plan: ''
-  });
+  const refreshExams = async () => {
+  if (!patient?.id) return;
+  const data = await getExaminations(patient.id);
+  setExams(data);
+};
+
+  // Examination states
+  const [notes, setNotes] = useState("");
+  const [examinations, setExaminations] = useState([]);
+  const [loading, setLoading] = useState(false);
   const [chartData, setChartData] = useState(() => {
     const initialData = {};
     for (let i = 1; i <= 32; i++) {
@@ -794,33 +824,129 @@ const DentalChart = ( patient, patientId) => {
     }
     return initialData;
   });
-
+  
+  const [soapData, setSoapData] = useState({
+    subjective: '',
+    objective: '',
+    assessment: '',
+    plan: ''
+  });
+  
   const [archTreatments, setArchTreatments] = useState({
     upper: [],
     lower: []
   });
-  const handleSaveExamination = async () => {
-  if (!patientId) return alert("No patient selected!");
+
+  // Fetch examinations when patient changes
+  useEffect(() => {
+    if (patient?.id) {
+      fetchExaminations();
+    }
+  }, [patient]);
+
+  // Fetch saved examinations
+  const fetchExaminations = async () => {
+    setLoading(true);
+    try {
+      const data = await getExaminations(patient.id);
+      setExaminations(data);
+    } catch (error) {
+      console.error("Error fetching examinations:", error);
+      showNotification("Failed to load examinations", "error");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Save examination with teeth data
+  const handleSave = async () => {
+  if (!patient?.id) {
+    alert("No patient selected!");
+    return;
+  }
+
+  const examData = {
+    patient: patient.id, // must be defined
+    notes: notes
+  };
 
   try {
-    const examRes = await saveExamination({
-      patient_id: patientId,
-      doctor_id: User.id,
-      created_at: new Date().toISOString(),
-    });
+    const exam = await saveExamination(examData);
 
-    setExaminationId(examRes.id);
+    if (exam?.id) {
+      const teethData = teeth.map(t => ({
+        tooth_number: t.id,
+        status: t.status,
+        selected_surfaces: t.selectedSurfaces,
+        mobility: t.mobility,
+        bleeding: t.bleeding,
+        timeline_history: t.timelineHistory,
+        procedure_history: t.procedureHistory
+      }));
 
-    if (Object.keys(teethData).length > 0) {
-      await saveTeeth(examRes.id, teethData);
+      await saveTeeth(exam.id, teethData);
+      alert("Examination saved successfully!");
+      refreshExams(); // optional: refresh list to display saved exam
     }
-
-    alert("Examination and teeth saved successfully!");
   } catch (err) {
     console.error(err);
-    alert("Failed to save examination");
+    alert("Failed to save examination.");
   }
 };
+
+  // Load a specific examination
+  const loadExamination = (exam) => {
+    // Reset chart data first
+    const newChartData = {};
+    for (let i = 1; i <= 32; i++) {
+      newChartData[i] = {
+        pd: [2, 2, 2],
+        bleeding: [false, false, false],
+        mobility: 0,
+        status: 'healthy',
+        procedureHistory: [],
+        timelineHistory: [],
+        selectedSurfaces: null,
+        clinicalNote: '',
+        soapNotes: null,
+        toothShade: null,
+        lastCleaned: null,
+        nextAppointment: null,
+        diagnosis: '',
+        prognosis: '',
+        treatmentPlan: '',
+        removalHistory: []
+      };
+    }
+
+    // Load teeth data from examination
+    if (exam.teeth && Array.isArray(exam.teeth)) {
+      exam.teeth.forEach(toothData => {
+        const toothId = toothData.tooth_number;
+        newChartData[toothId] = {
+          pd: toothData.pd || [2, 2, 2],
+          bleeding: toothData.bleeding || [false, false, false],
+          mobility: toothData.mobility || 0,
+          status: toothData.status || 'healthy',
+          procedureHistory: toothData.procedure_history || [],
+          timelineHistory: toothData.timeline_history || [],
+          selectedSurfaces: toothData.selected_surfaces || null,
+          clinicalNote: toothData.clinical_note || '',
+          toothShade: toothData.tooth_shade || null,
+          lastCleaned: toothData.last_cleaned || null,
+          nextAppointment: null,
+          diagnosis: '',
+          prognosis: '',
+          treatmentPlan: '',
+          removalHistory: []
+        };
+      });
+    }
+
+    setChartData(newChartData);
+    setNotes(exam.notes || "");
+    showNotification(`Loaded examination from ${new Date(exam.created_at).toLocaleDateString()}`, "success");
+  };
 
   const showNotification = (message, type = 'info') => {
     const colors = {
@@ -1214,12 +1340,95 @@ const DentalChart = ( patient, patientId) => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-white p-4">
       <div className="max-w-7xl mx-auto">
-        <button
-  onClick={handleSaveExamination}
-  className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
->
-  Save Examination
-</button>
+        {/* Examination Header */}
+        <div className="mb-6 bg-white rounded-xl border border-gray-200 shadow-sm p-4">
+          <div className="flex justify-between items-center mb-4">
+            <div>
+              <h2 className="text-xl font-bold text-gray-800">
+                Dental Examination {patient ? `for ${patient.name}` : ''}
+              </h2>
+              <p className="text-sm text-gray-600 mt-1">
+                {patient ? `Patient ID: ${patient.id}` : 'Select a patient to begin'}
+              </p>
+            </div>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={fetchExaminations}
+                className="px-4 py-2 bg-gray-100 border border-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-200 transition-all duration-200"
+              >
+                Refresh Exams
+              </button>
+              <button
+                onClick={handleSave}
+                disabled={!patient?.id}
+                className="px-4 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Save Examination
+              </button>
+            </div>
+          </div>
+          
+          {/* Examination Notes */}
+          <div className="mb-4">
+            <label className="text-sm font-medium text-gray-700 mb-2 block">Examination Notes</label>
+            <textarea
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              placeholder="Enter overall examination notes, observations, findings..."
+              className="w-full h-32 bg-gray-50 border border-gray-200 rounded-lg p-3 text-sm focus:border-blue-500 focus:ring-0 outline-none transition-all duration-200 resize-none"
+            />
+          </div>
+
+          {/* Saved Examinations */}
+          <div className="mt-4">
+            <h3 className="text-lg font-bold text-gray-800 mb-3">Saved Examinations</h3>
+            {loading ? (
+              <div className="text-center py-4">
+                <p className="text-gray-600">Loading examinations...</p>
+              </div>
+            ) : examinations.length === 0 ? (
+              <div className="text-center py-8 border border-gray-200 rounded-lg bg-gray-50">
+                <div className="text-4xl mb-2 text-gray-300">📋</div>
+                <p className="text-gray-600">No examinations found for this patient</p>
+                <p className="text-sm text-gray-500 mt-1">Save an examination to see it here</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-64 overflow-y-auto p-1">
+                {examinations.map(exam => (
+                  <div 
+                    key={exam.id} 
+                    className="bg-white border border-gray-200 rounded-lg p-3 hover:border-blue-300 transition-all duration-200 cursor-pointer"
+                    onClick={() => loadExamination(exam)}
+                  >
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <h4 className="font-medium text-gray-800">
+                          Examination {exam.id}
+                        </h4>
+                        <p className="text-sm text-gray-600 mt-1">
+                          {new Date(exam.created_at).toLocaleString()}
+                        </p>
+                        {exam.notes && (
+                          <p className="text-sm text-gray-700 mt-2 line-clamp-2">
+                            {exam.notes}
+                          </p>
+                        )}
+                      </div>
+                      <span className="text-xs font-medium px-2 py-1 rounded-full bg-blue-100 text-blue-700">
+                        {exam.teeth?.length || 0} teeth
+                      </span>
+                    </div>
+                    <div className="mt-2">
+                      <button className="text-sm text-blue-600 hover:text-blue-800">
+                        Click to load →
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
 
         <div className="flex gap-4">
           <div className="flex-1">

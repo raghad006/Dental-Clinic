@@ -39,7 +39,7 @@ const getAuthHeaders = () => {
 const authFetch = async (url, options = {}) => {
   const headers = getAuthHeaders();
   if (Object.keys(headers).length === 0) {
-    return null; // No token, will redirect in getAuthHeaders
+    return null;
   }
   
   const response = await fetch(url, {
@@ -50,7 +50,6 @@ const authFetch = async (url, options = {}) => {
     },
   });
 
-  // Handle 401 Unauthorized
   if (response.status === 401) {
     console.warn("Token expired or invalid, redirecting to login");
     localStorage.removeItem("access_token");
@@ -108,12 +107,11 @@ const Appointments = () => {
   
   const dropdownRef = useRef(null);
   const itemsPerPage = 8;
+  const userRole = localStorage.getItem("user_role");
 
-  // Save page/date in localStorage
   useEffect(() => localStorage.setItem("appointmentsPage", currentPage), [currentPage]);
   useEffect(() => localStorage.setItem("appointmentsDate", selectedDate), [selectedDate]);
 
-  // Check authentication on component mount
   useEffect(() => {
     const token = localStorage.getItem("access_token");
     if (!token) {
@@ -121,7 +119,6 @@ const Appointments = () => {
     }
   }, [navigate]);
 
-  // Fetch doctors & appointments
   useEffect(() => {
     const fetchData = async () => {
       const token = localStorage.getItem("access_token");
@@ -133,7 +130,7 @@ const Appointments = () => {
       const fetchDoctors = async () => {
         try {
           const res = await authFetch(`${API_BASE_URL}/staff/`);
-          if (!res) return; // authFetch handles redirection
+          if (!res) return;
           const data = await res.json();
           setDoctorOptions(data);
         } catch (err) {
@@ -145,7 +142,7 @@ const Appointments = () => {
         setLoading(true);
         try {
           const res = await authFetch(`${API_BASE_URL}/appointments/`);
-          if (!res) return; // authFetch handles redirection
+          if (!res) return;
           if (!res.ok) throw new Error("Failed to fetch appointments");
           const data = await res.json();
           setAppointments(data);
@@ -164,7 +161,6 @@ const Appointments = () => {
     fetchData();
   }, [navigate]);
 
-  // Close dropdown if click outside
   useEffect(() => {
     const handleClickOutside = (e) => {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
@@ -177,7 +173,6 @@ const Appointments = () => {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // Sort doctors alphabetically
   const sortedDoctorOptions = useMemo(() => {
     return [...doctorOptions].sort((a, b) => 
       a.full_display_name.localeCompare(b.full_display_name)
@@ -191,7 +186,7 @@ const Appointments = () => {
         method: "PATCH",
         body: JSON.stringify({ status: newStatus }),
       });
-      if (!res) return; // authFetch handles redirection
+      if (!res) return;
       if (!res.ok) throw new Error("Failed to update status");
       const updatedAppt = await res.json();
 
@@ -210,45 +205,41 @@ const Appointments = () => {
       setErrorMessage("Failed to update status on server");
     }
   };
+  const formatDate = (date) => {
+  if (!date) return null;
+  return typeof date === "string" ? date.split("T")[0] : date.toISOString().split("T")[0];
+};
 
-  // Get all appointments for the selected date (for stats)
+
   const appointmentsForSelectedDate = useMemo(() => {
-    if (!appointments.length) return [];
-    
-    return appointments.filter((appt) => {
-      const apptDate = appt.date ? (typeof appt.date === 'string' ? appt.date.split("T")[0] : appt.date) : null;
-      const selected = selectedDate ? selectedDate.split("T")[0] : null;
-      return apptDate === selected;
-    });
-  }, [appointments, selectedDate]);
+  if (!appointments.length) return [];
+  const selected = formatDate(selectedDate);
+  return appointments.filter(appt => formatDate(appt.date) === selected);
+}, [appointments, selectedDate]);
 
-  // Filter appointments - CORRECTED VERSION
+
   const filteredAppointments = useMemo(() => {
-    if (!appointments.length) return [];
-    
-    return appointments.filter((appt) => {
-      const apptDate = appt.date ? (typeof appt.date === 'string' ? appt.date.split("T")[0] : appt.date) : null;
-      const selected = selectedDate ? selectedDate.split("T")[0] : null;
-      
-      // Check if appointment matches the selected date
-      const matchesDate = apptDate === selected;
-      if (!matchesDate) return false;
-      
-      // Check if appointment matches search
-      const matchesSearch = !search || (appt.patient_display && 
-        appt.patient_display.toLowerCase().includes(search.toLowerCase()));
-      if (!matchesSearch) return false;
-      
-      // Check if appointment matches doctor filter
-      const matchesDoctor = !filterDoctor || 
-        (appt.doctor_display && appt.doctor_display === filterDoctor);
-      if (!matchesDoctor) return false;
-      
-      // Check if appointment matches status filter
-      const matchesStatus = !filterStatus || appt.status === filterStatus;
-      return matchesStatus;
-    });
-  }, [appointments, selectedDate, filterStatus, filterDoctor, search]);
+  if (!appointments.length) return [];
+
+  const selected = new Date(selectedDate).toISOString().split("T")[0]; // normalize selected date
+
+  return appointments.filter((appt) => {
+    // normalize appt date
+    const apptDate = new Date(appt.date).toISOString().split("T")[0];
+    if (apptDate !== selected) return false;
+
+    // search filter
+    if (search && appt.patient_display && !appt.patient_display.toLowerCase().includes(search.toLowerCase())) return false;
+
+    // doctor filter (convert both to number)
+    if (filterDoctor && Number(appt.doctor) !== Number(filterDoctor)) return false;
+
+    // status filter
+    if (filterStatus && appt.status?.trim() !== filterStatus) return false;
+
+    return true;
+  });
+}, [appointments, selectedDate, filterStatus, filterDoctor, search]);
 
   const paginatedAppointments = filteredAppointments.slice(
     (currentPage - 1) * itemsPerPage,
@@ -292,6 +283,17 @@ const Appointments = () => {
     });
   };
 
+  const handleStartExamination = (appointment) => {
+    navigate(`/examination/${appointment.id}`, {
+      state: {
+        patientId: appointment.patient,
+        appointmentId: appointment.id,
+        patientName: appointment.patient_display,
+        doctorName: appointment.doctor_display
+      }
+    });
+  };
+
   const handleRefresh = async () => {
     setLoading(true);
     try {
@@ -319,6 +321,108 @@ const Appointments = () => {
     setSuccessMessage("All filters cleared!");
     
     setTimeout(() => setSuccessMessage(""), 3000);
+  };
+
+  const renderActions = (appt, index, globalIndex) => {
+    if (userRole === "nurse" && appt.status === "Checked In") {
+      return <span className="text-xs text-gray-400">No actions</span>;
+    }
+
+    if (userRole === "doctor" && appt.status === "Checked In") {
+      return (
+        <div className="flex gap-2">
+          <button
+            onClick={() => handleStartExamination(appt)}
+            className="flex items-center gap-1 px-3 py-2 bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white rounded-lg text-xs font-medium transition-all"
+          >
+            <Stethoscope size={14} /> Start Exam
+          </button>
+          
+          {editingNoteIndex === index ? (
+            <div className="flex flex-col gap-2">
+              <textarea
+                value={noteText}
+                onChange={(e) => setNoteText(e.target.value)}
+                className="w-full p-2 border border-blue-200 rounded-lg text-xs focus:ring-1 focus:ring-blue-400 focus:border-blue-400 bg-white transition-all"
+                placeholder="Add notes..."
+                rows="2"
+              />
+              <div className="flex gap-1">
+                <button
+                  onClick={() => handleSaveNote(globalIndex)}
+                  className="flex-1 flex items-center justify-center gap-1 px-2 py-1.5 bg-gradient-to-r from-green-500 to-green-600 text-white rounded text-xs font-medium hover:from-green-600 hover:to-green-700 transition-all"
+                >
+                  <Save size={12} /> Save
+                </button>
+                <button
+                  onClick={() => setEditingNoteIndex(null)}
+                  className="flex-1 flex items-center justify-center gap-1 px-2 py-1.5 bg-gray-100 text-gray-700 rounded text-xs font-medium hover:bg-gray-200 transition-all"
+                >
+                  <X size={12} /> Cancel
+                </button>
+              </div>
+            </div>
+          ) : (
+            <button
+              onClick={() => {
+                setEditingNoteIndex(index);
+                setNoteText(appt.notes || "");
+              }}
+              className="flex items-center gap-1 px-3 py-2 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white rounded-lg text-xs font-medium transition-all"
+            >
+              <FileText size={14} /> Notes
+            </button>
+          )}
+        </div>
+      );
+    }
+
+    if (appt.status === "Checked In") {
+      return editingNoteIndex === index ? (
+        <div className="flex flex-col gap-2">
+          <textarea
+            value={noteText}
+            onChange={(e) => setNoteText(e.target.value)}
+            className="w-full p-2 border border-blue-200 rounded-lg text-xs focus:ring-1 focus:ring-blue-400 focus:border-blue-400 bg-white transition-all"
+            placeholder="Add notes..."
+            rows="2"
+          />
+          <div className="flex gap-1">
+            <button
+              onClick={() => handleSaveNote(globalIndex)}
+              className="flex-1 flex items-center justify-center gap-1 px-2 py-1.5 bg-gradient-to-r from-green-500 to-green-600 text-white rounded text-xs font-medium hover:from-green-600 hover:to-green-700 transition-all"
+            >
+              <Save size={12} /> Save
+            </button>
+            <button
+              onClick={() => setEditingNoteIndex(null)}
+              className="flex-1 flex items-center justify-center gap-1 px-2 py-1.5 bg-gray-100 text-gray-700 rounded text-xs font-medium hover:bg-gray-200 transition-all"
+            >
+              <X size={12} /> Cancel
+            </button>
+          </div>
+        </div>
+      ) : (
+        <button
+          onClick={() => {
+            setEditingNoteIndex(index);
+            setNoteText(appt.notes || "");
+          }}
+          className="flex items-center gap-1 px-3 py-2 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white rounded-lg text-xs font-medium transition-all"
+        >
+          <FileText size={14} /> Add Notes
+        </button>
+      );
+    }
+
+    return (
+      <button
+        className="flex items-center gap-1 px-3 py-2 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white rounded-lg text-xs font-medium transition-all"
+        onClick={() => handleReschedule(appt)}
+      >
+        <CalendarClock size={14} /> Reschedule
+      </button>
+    );
   };
 
   return (
@@ -419,9 +523,7 @@ const Appointments = () => {
           </div>
         </div>
 
-        {/* Main Content */}
         <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-2xl p-6 md:p-8 border border-blue-100">
-          {/* Date Selection & Filters */}
           <div className="flex items-center justify-between mb-8 flex-wrap gap-4">
             <div className="flex items-center gap-3">
               <div className="p-2 bg-blue-100 rounded-lg">
@@ -473,7 +575,10 @@ const Appointments = () => {
                   }}
                 >
                   <span className="text-gray-700 truncate">
-                    {filterDoctor || "All Doctors"}
+                    {filterDoctor 
+                      ? sortedDoctorOptions.find(d => d.id.toString() === filterDoctor)?.full_display_name || "Selected Doctor"
+                      : "All Doctors"
+                    }
                   </span>
                   <ChevronDown className="text-blue-500 flex-shrink-0" size={16} />
                 </button>
@@ -495,7 +600,7 @@ const Appointments = () => {
                         key={doc.id}
                         className="block w-full text-left px-3 py-2 hover:bg-blue-50 border-b border-blue-100 transition-all text-sm"
                         onClick={() => {
-                          setFilterDoctor(doc.full_display_name);
+                          setFilterDoctor(doc.id.toString());
                           setOpenDoctorDropdown(false);
                           setCurrentPage(1);
                         }}
@@ -655,8 +760,8 @@ const Appointments = () => {
                               <div 
                                 className={`absolute z-30 bg-white rounded-lg shadow-xl border border-blue-200 w-40 ${
                                   isLastFewItems 
-                                    ? "bottom-full mb-1" // Open upwards for last few items
-                                    : "top-full mt-1"    // Open downwards for others
+                                    ? "bottom-full mb-1"
+                                    : "top-full mt-1"
                                 }`}
                               >
                                 <div className="p-1">
@@ -687,57 +792,7 @@ const Appointments = () => {
                           </div>
                           
                           <div className="col-span-2">
-                            {appt.status === "Checked In" ? (
-                              editingNoteIndex === index ? (
-                                <div className="flex flex-col gap-2">
-                                  <textarea
-                                    value={noteText}
-                                    onChange={(e) => setNoteText(e.target.value)}
-                                    className="w-full p-2 border border-blue-200 rounded-lg text-xs focus:ring-1 focus:ring-blue-400 focus:border-blue-400 bg-white transition-all"
-                                    placeholder="Add notes..."
-                                    rows="2"
-                                  />
-                                  <div className="flex gap-1">
-                                    <button
-                                      onClick={() => handleSaveNote(globalIndex)}
-                                      className="flex-1 flex items-center justify-center gap-1 px-2 py-1.5 bg-gradient-to-r from-green-500 to-green-600 text-white rounded text-xs font-medium hover:from-green-600 hover:to-green-700 transition-all"
-                                    >
-                                      <Save size={12} /> Save
-                                    </button>
-                                    <button
-                                      onClick={() => setEditingNoteIndex(null)}
-                                      className="flex-1 flex items-center justify-center gap-1 px-2 py-1.5 bg-gray-100 text-gray-700 rounded text-xs font-medium hover:bg-gray-200 transition-all"
-                                    >
-                                      <X size={12} /> Cancel
-                                    </button>
-                                  </div>
-                                </div>
-                              ) : (
-                                <button
-                                  onClick={() => {
-                                    setEditingNoteIndex(index);
-                                    setNoteText(appt.notes || "");
-                                  }}
-                                  className="flex items-center gap-1 px-3 py-2 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white rounded-lg text-xs font-medium transition-all"
-                                >
-                                  <FileText size={14} /> Add Notes
-                                </button>
-                              )
-                            ) : appt.status === "Cancelled" ? (
-                              <button
-                                className="flex items-center gap-1 px-3 py-2 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white rounded-lg text-xs font-medium transition-all"
-                                onClick={() => handleReschedule(appt)}
-                              >
-                                <CalendarClock size={14} /> Reschedule
-                              </button>
-                            ) : (
-                              <button
-                                className="flex items-center gap-1 px-3 py-2 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white rounded-lg text-xs font-medium transition-all"
-                                onClick={() => handleReschedule(appt)}
-                              >
-                                <CalendarClock size={14} /> Reschedule
-                              </button>
-                            )}
+                            {renderActions(appt, index, globalIndex)}
                           </div>
                         </div>
                       );
@@ -781,7 +836,7 @@ const Appointments = () => {
             <div className="flex items-center justify-between text-xs text-blue-800">
               <div>
                 <span className="font-semibold">{filteredAppointments.length}</span> appointments found
-                {filterDoctor && ` for Dr. ${filterDoctor}`}
+                {filterDoctor && ` for Dr. ${sortedDoctorOptions.find(d => d.id.toString() === filterDoctor)?.full_display_name}`}
                 {filterStatus && ` with status: ${filterStatus}`}
               </div>
               <div className="flex items-center gap-3">

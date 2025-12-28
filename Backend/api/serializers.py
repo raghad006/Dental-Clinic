@@ -1,11 +1,12 @@
-from rest_framework import serializers
+# api/serializers.py
+from rest_framework import serializers , generics
 from django.contrib.auth.hashers import check_password, make_password
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.utils import timezone
 from datetime import datetime
 from .models import ClinicUser, Patient, ClinicPatient, Appointment
-
+from medical_records.models import Examination, Prescription, PrescriptionItem
 
 class ClinicUserRegisterSerializer(serializers.ModelSerializer):
     first_name = serializers.CharField()
@@ -212,27 +213,23 @@ class AppointmentSerializer(serializers.ModelSerializer):
                     raise serializers.ValidationError({
                         "time": f"This time slot ({time_str}) is already booked for Dr. {doctor.full_display_name} on {date}. Please choose another time."
                     })
-                
-                # Check if time is in the past for today
-                if date == timezone.now().date():
+                # Combine date & time into timezone-aware datetime
+                if isinstance(time_value, str):
                     try:
-                        appointment_time = datetime.strptime(time_str, "%H:%M").time()
-                        if appointment_time < timezone.now().time():
-                            raise serializers.ValidationError({
-                                "time": "Cannot book appointments in the past. Please choose a future time."
-                            })
+                        appointment_time = datetime.strptime(time_value, "%H:%M").time()
                     except ValueError:
-                        # Try with seconds format
                         try:
-                            appointment_time = datetime.strptime(time_str, "%H:%M:%S").time()
-                            if appointment_time < timezone.now().time():
-                                raise serializers.ValidationError({
-                                    "time": "Cannot book appointments in the past. Please choose a future time."
-                                })
+                            appointment_time = datetime.strptime(time_value, "%H:%M:%S").time()
                         except ValueError:
-                            raise serializers.ValidationError({
-                                "time": "Invalid time format. Use HH:MM or HH:MM:SS"
-                            })
+                            raise serializers.ValidationError("Invalid time format. Use HH:MM or HH:MM:SS")
+                else:
+                    appointment_time = time_value
+
+                appointment_dt = timezone.make_aware(datetime.combine(date, appointment_time))
+
+                if appointment_dt <= timezone.now():
+                    raise serializers.ValidationError("Cannot book appointments in the past. Choose a future date & time.")
+
 
             # Add patient and doctor to validated data
             data["patient"] = patient
@@ -295,7 +292,6 @@ class DoctorSerializer(serializers.ModelSerializer):
         model = ClinicUser
         fields = ['id', 'full_display_name', 'email', 'role', 'first_name', 'last_name']
 
-from medical_records.models import Examination, Prescription, PrescriptionItem
 
 class PrescriptionItemNestedSerializer(serializers.ModelSerializer):
     class Meta:
@@ -392,3 +388,47 @@ class ClinicPatientMedicalRecordSerializer(serializers.ModelSerializer):
     def get_last_visit(self, obj):
         last_appointment = obj.appointments.order_by("-date").first()
         return last_appointment.date if last_appointment else None
+
+class PrescriptionDetailView(generics.RetrieveUpdateDestroyAPIView):
+    queryset = Prescription.objects.all()
+    serializer_class = PrescriptionNestedSerializer
+
+# api/serializers.py
+from rest_framework import serializers
+from medical_records.models import Examination, ToothExamination
+
+class ToothExaminationSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ToothExamination
+        fields = "__all__"  # or list the fields you need for frontend
+
+class ExaminationSerializer(serializers.ModelSerializer):
+    teeth = ToothExaminationSerializer(many=True)
+
+    class Meta:
+        model = Examination
+        fields = "__all__"
+
+    def create(self, validated_data):
+        teeth_data = validated_data.pop("teeth", [])
+        examination = Examination.objects.create(**validated_data)
+        for tooth in teeth_data:
+            ToothExamination.objects.create(examination=examination, **tooth)
+        return examination
+
+    def update(self, instance, validated_data):
+        teeth_data = validated_data.pop("teeth", [])
+        # Update examination fields
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        instance.save()
+
+        # Update or create teeth
+        for tooth_data in teeth_data:
+            tooth_number = tooth_data.get("tooth_number")
+            tooth_instance, created = ToothExamination.objects.update_or_create(
+                examination=instance,
+                tooth_number=tooth_number,
+                defaults=tooth_data
+            )
+        return instance

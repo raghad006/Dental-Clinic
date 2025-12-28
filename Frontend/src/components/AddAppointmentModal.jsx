@@ -29,6 +29,7 @@ const AddAppointmentPage = () => {
   const [availableTimeSlots, setAvailableTimeSlots] = useState([]);
   const [fetchingTimeSlots, setFetchingTimeSlots] = useState(false);
   const [selectedPatientInfo, setSelectedPatientInfo] = useState(null); // Added to store patient info
+  const today = new Date();
 
   const procedureOptions = [
     "Teeth Cleaning", "Filling", "Implant", "Consultation", 
@@ -71,6 +72,16 @@ const AddAppointmentPage = () => {
     fetchDoctors();
     fetchPatients();
   }, [patientIdFromUrl]); // Added dependency
+  const isTodaySelected = () => {
+  if (!date) return false;
+  const today = new Date();
+  const selected = new Date(date);
+  return (
+    today.getFullYear() === selected.getFullYear() &&
+    today.getMonth() === selected.getMonth() &&
+    today.getDate() === selected.getDate()
+  );
+};
 
   /* ================= FALLBACK: FETCH FROM APPOINTMENTS ENDPOINT ================= */
   const fetchTimeSlotsFromAlternativeEndpoint = async (doctorId, date) => {
@@ -167,6 +178,7 @@ const AddAppointmentPage = () => {
       return false;
     }
   };
+
 
   /* ================= CHECK SPECIFIC TIME SLOT AVAILABILITY ================= */
   const checkTimeSlotAvailability = async (doctorId, date, time) => {
@@ -327,6 +339,17 @@ const AddAppointmentPage = () => {
   };
 
   const selectedDoctor = doctorOptions.find(d => d.id === parseInt(doctorId));
+  const now = new Date();
+
+  const displayedTimeSlots = availableTimeSlots.filter(t => {
+  if (!isTodaySelected()) return true; // show all for future dates
+
+  const [hours, minutes] = t.split(":").map(Number);
+  const slotTime = new Date(date);
+  slotTime.setHours(hours, minutes, 0, 0);
+
+  return slotTime > now; // only future times
+});
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-white p-4 md:p-6">
@@ -497,7 +520,13 @@ const AddAppointmentPage = () => {
                     </div>
                     <h3 className="font-bold text-gray-800">Appointment Date</h3>
                   </div>
-                  <CalendarDropdown selectedDate={date} onDateChange={setDate} />
+
+
+<CalendarDropdown
+  selectedDate={date}
+  onDateChange={setDate}
+  minDate={today} // prevents past dates
+/>
                   <div className="text-sm text-blue-600 mt-2">
                     {date ? `Selected: ${new Date(date).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}` : "Choose a date"}
                   </div>
@@ -523,29 +552,31 @@ const AddAppointmentPage = () => {
                       ) : (
                         <>
                           <div className="grid grid-cols-4 gap-3">
-                            {availableTimeSlots.map(t => (
-                              <button
-                                key={t}
-                                onClick={() => setTime(t)}
-                                className={`py-3 rounded-lg border-2 transition-all ${time === t 
-                                  ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white border-blue-500 shadow-md' 
-                                  : 'border-blue-200 hover:border-blue-400 hover:bg-blue-50 text-gray-700'
-                                }`}
-                              >
-                                {t}
-                              </button>
-                            ))}
+                            {displayedTimeSlots.map(t => (
+  <button
+    key={t}
+    onClick={() => setTime(t)}
+    className={`py-3 rounded-lg border-2 transition-all ${time === t 
+      ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white border-blue-500 shadow-md' 
+      : 'border-blue-200 hover:border-blue-400 hover:bg-blue-50 text-gray-700'
+    }`}
+  >
+    {t}
+  </button>
+))}
+
                           </div>
-                          {availableTimeSlots.length === 0 && (
-                            <div className="mt-3 p-4 bg-red-50 border border-red-200 rounded-lg">
-                              <div className="flex items-center gap-2 text-red-700">
-                                <X size={20} />
-                                <p className="text-sm">
-                                  No available time slots for {selectedDoctor?.full_display_name} on this date.
-                                </p>
-                              </div>
-                            </div>
-                          )}
+{displayedTimeSlots.length === 0 && (
+  <div className="mt-3 p-4 bg-red-50 border border-red-200 rounded-lg">
+    <div className="flex items-center gap-2 text-red-700">
+      <X size={20} />
+      <p className="text-sm">
+        No available future time slots for {selectedDoctor?.full_display_name} on this date.
+      </p>
+    </div>
+  </div>
+)}
+
                           {availableTimeSlots.length > 0 && (
                             <div className="mt-3 text-sm text-blue-600">
                               {availableTimeSlots.length} slots available for {selectedDoctor?.full_display_name}

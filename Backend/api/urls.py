@@ -1,3 +1,4 @@
+# api/urls.py
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from .views import (
@@ -11,11 +12,13 @@ from .views import (
     DoctorListView,
     AppointmentViewSet,
 ClinicPatientMedicalRecordView,
-PrescriptionCreateView ,
+PrescriptionCreateView , PrescriptionDetailView,
+ExaminationRetrieveUpdateView, ExaminationCreateView ,PatientExaminationsListView,ToothExaminationBulkCreateView ,
     get_available_time_slots,   
     check_time_slot_availability,     
     get_doctor_availability,    
 )   
+from . import views
 
 # ---------------- Router for appointments ----------------
 router = DefaultRouter()
@@ -37,6 +40,7 @@ urlpatterns = [
     ),
     path('clinic-patient/<str:patient_id>/medical-record/', ClinicPatientMedicalRecordView.as_view(), name='clinic-patient-medical-record'),
     path('clinic-patient/<str:patient_id>/prescriptions/', PrescriptionCreateView.as_view(), name='prescription-create'),
+    path('prescriptions/<int:pk>/', views.PrescriptionDetailView.as_view()),  # detail/update/delete
     # ---------------- Doctors ----------------
 
     path("staff/", DoctorListView.as_view(), name="doctor-list"),
@@ -47,4 +51,11 @@ urlpatterns = [
     path("doctors/<int:doctor_id>/availability/", get_doctor_availability, name="doctor-availability"),
 
     path("", include(router.urls)),
+
+    path("examination/add/", ExaminationCreateView.as_view(), name="examination-add"),
+    path("examination/<int:pk>/", ExaminationRetrieveUpdateView.as_view(), name="examination-detail"),
+    path("patient/<str:patient_id>/examinations/", PatientExaminationsListView.as_view(), name="patient-examinations"),
+    path("tooth-examinations/bulk/", ToothExaminationBulkCreateView.as_view(), name="tooth-examination-bulk"),
+
+
 ]

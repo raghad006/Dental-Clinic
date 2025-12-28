@@ -1,3 +1,4 @@
+# api/models.py
 from django.contrib.auth.models import AbstractUser, Group, Permission
 from django.db import models
 from django.contrib.auth.hashers import make_password
@@ -148,7 +149,7 @@ class Appointment(models.Model):
 
     # ---------------- Class Methods ----------------
     @staticmethod
-    def generate_time_slots(start="09:00", end="18:00", interval_minutes=30):
+    def generate_time_slots(start="09:00", end="18:00", interval_minutes=60):
         """Generate time slots between start and end in HH:MM format"""
         slots = []
         start_hour, start_minute = map(int, start.split(":"))

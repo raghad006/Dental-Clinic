@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { ChevronLeft, ChevronRight, CalendarDays } from "lucide-react";
 
-const CalendarDropdown = ({ selectedDate, onDateChange }) => {
+const CalendarDropdown = ({ selectedDate, onDateChange, minDate }) => {
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [open, setOpen] = useState(false);
   const dropdownRef = useRef(null);
@@ -12,7 +12,7 @@ const CalendarDropdown = ({ selectedDate, onDateChange }) => {
       : selectedDate
       ? (() => {
           const [y, m, d] = selectedDate.split("-").map(Number);
-          return new Date(y, m - 1, d); 
+          return new Date(y, m - 1, d);
         })()
       : null;
 
@@ -36,6 +36,12 @@ const CalendarDropdown = ({ selectedDate, onDateChange }) => {
 
   const handleSelect = (date) => {
     if (!date) return;
+
+    // Prevent selection of past date
+    if (minDate && date < new Date(minDate.setHours(0, 0, 0, 0))) {
+      return;
+    }
+
     // format as YYYY-MM-DD string
     const localDate = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(
       2,
@@ -78,6 +84,11 @@ const CalendarDropdown = ({ selectedDate, onDateChange }) => {
       date.getMonth() === today.getMonth() &&
       date.getFullYear() === today.getFullYear()
     );
+  };
+
+  const isPastDate = (date) => {
+    if (!date || !minDate) return false;
+    return date < new Date(minDate.setHours(0, 0, 0, 0));
   };
 
   return (
@@ -135,15 +146,19 @@ const CalendarDropdown = ({ selectedDate, onDateChange }) => {
             {generateDays().map((date, idx) => {
               const selected = isSelected(date);
               const today = isToday(date);
+              const past = isPastDate(date);
+
               return (
                 <button
                   key={idx}
                   onClick={() => handleSelect(date)}
-                  disabled={!date}
+                  disabled={!date || past}
                   className={`aspect-square rounded-xl flex items-center justify-center transition-all duration-200
                     ${
                       !date
                         ? "bg-transparent cursor-default"
+                        : past
+                        ? "bg-gray-100 text-gray-400 cursor-not-allowed"
                         : selected
                         ? "bg-blue-500 text-white shadow-sm"
                         : today

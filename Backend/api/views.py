@@ -1,3 +1,4 @@
+# api/views.py
 from rest_framework import generics, status, viewsets
 from rest_framework.response import Response
 from rest_framework_simplejwt.views import TokenObtainPairView
@@ -306,12 +307,18 @@ def get_doctor_availability(request, doctor_id):
     })
 from rest_framework.permissions import IsAuthenticated
 
-class ClinicPatientMedicalRecordView(generics.RetrieveAPIView):
-    queryset = ClinicPatient.objects.all()
+from rest_framework.generics import RetrieveAPIView
+from .models import ClinicPatient
+from .serializers import ClinicPatientMedicalRecordSerializer
+
+class ClinicPatientMedicalRecordView(RetrieveAPIView):
     serializer_class = ClinicPatientMedicalRecordSerializer
     lookup_field = "patient_id"
-    permission_classes = [IsAuthenticated]
-# Add these imports at the top of api/views.py
+
+    def get_queryset(self):
+        return ClinicPatient.objects.all()
+
+
 
 class PrescriptionCreateView(APIView):
     def post(self, request, patient_id):
@@ -350,3 +357,48 @@ class PrescriptionCreateView(APIView):
         # Return the medical record format so the frontend updates immediately
         from .serializers import PrescriptionNestedSerializer
         return Response(PrescriptionNestedSerializer(prescription).data, status=status.HTTP_201_CREATED)
+    # api/views.py
+from rest_framework import generics
+from .models import Prescription
+from .serializers import PrescriptionNestedSerializer  # or PrescriptionSerializer
+
+class PrescriptionDetailView(generics.RetrieveUpdateDestroyAPIView):
+    queryset = Prescription.objects.all()
+    serializer_class = PrescriptionNestedSerializer  # or PrescriptionSerializer
+# api/views.py
+from rest_framework import generics
+from medical_records.models import Examination
+from .serializers import ExaminationSerializer
+from rest_framework.permissions import IsAuthenticated
+
+class ExaminationRetrieveUpdateView(generics.RetrieveUpdateAPIView):
+    queryset = Examination.objects.all()
+    serializer_class = ExaminationSerializer
+    lookup_field = "appointment"  # or patient_id depending on your use case
+    permission_classes = [IsAuthenticated]
+
+class ExaminationCreateView(generics.CreateAPIView):
+    queryset = Examination.objects.all()
+    serializer_class = ExaminationSerializer
+    permission_classes = [IsAuthenticated]
+class PatientExaminationsListView(generics.ListAPIView):
+    serializer_class = ExaminationSerializer
+
+    def get_queryset(self):
+        patient_id = self.kwargs['patient_id']
+        return Examination.objects.filter(patient__id=patient_id)
+# views.py
+from rest_framework import generics
+from rest_framework.response import Response
+from medical_records.models import ToothExamination, Examination
+from .serializers import ToothExaminationSerializer
+
+class ToothExaminationBulkCreateView(generics.CreateAPIView):
+    serializer_class = ToothExaminationSerializer
+
+    def post(self, request, *args, **kwargs):
+        exam_id = request.data.get("examination")
+        teeth_data = request.data.get("teeth", [])
+        for tooth in teeth_data:
+            ToothExamination.objects.create(examination_id=exam_id, **tooth)
+        return Response({"status": "success", "created": len(teeth_data)})
