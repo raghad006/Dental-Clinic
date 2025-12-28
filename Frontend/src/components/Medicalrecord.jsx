@@ -434,7 +434,18 @@ export default function MedicalRecord() {
       )
     },
     { name: "progress", label: "Progress Photos", icon: <TrendingUp className="w-5 h-5"/>, content: <ProgressTracker patient={patient} setPatient={setPatient}/> },
-    { name: "examinations", label: "Examinations", icon: <Clipboard className="w-5 h-5"/>, content: <Examinations patient={patient} setPatient={setPatient}/> },
+{
+  name: "examinations",
+  label: "Examinations",
+  icon: <Clipboard className="w-5 h-5"/>,
+  content: (
+    <Examinations
+      patient={patient}
+      patientId={patient_id}
+      setPatient={setPatient}
+    />
+  )
+},
     { name: "xrays", label: "X-Rays", icon: <Image className="w-5 h-5"/>, content: <Xrays patient={patient} setPatient={setPatient}/> },
     { name: "prescriptions", label: "Prescriptions", icon: <Tablet className="w-5 h-5"/>, content: <Prescription patient={patient} setPatient={setPatient}/> },
     { name: "treatmentPlans", label: "Treatment", icon: <FileText className="w-5 h-5"/>, content: <Treatment patient={patient} setPatient={setPatient}/> }

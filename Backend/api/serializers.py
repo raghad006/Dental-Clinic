@@ -295,10 +295,7 @@ class DoctorSerializer(serializers.ModelSerializer):
         model = ClinicUser
         fields = ['id', 'full_display_name', 'email', 'role', 'first_name', 'last_name']
 
-# api/serializers.py
-from rest_framework import serializers
-from .models import ClinicPatient
-from medical_records.models import Prescription, PrescriptionItem, ExaminationRecord, ExaminationProgress
+from medical_records.models import Examination, Prescription, PrescriptionItem
 
 class PrescriptionItemNestedSerializer(serializers.ModelSerializer):
     class Meta:
@@ -306,32 +303,68 @@ class PrescriptionItemNestedSerializer(serializers.ModelSerializer):
         fields = ["id", "medicine", "dosage", "frequency", "notes"]
 
 class PrescriptionNestedSerializer(serializers.ModelSerializer):
-    items = PrescriptionItemNestedSerializer(many=True, read_only=True)
-    doctor_name = serializers.CharField(source="doctor.full_display_name", read_only=True)
+    items = PrescriptionItemNestedSerializer(many=True)
 
     class Meta:
         model = Prescription
-        fields = ["id", "doctor_name", "created_at", "items"]
+        fields = ['id', 'patient', 'doctor', 'notes', 'items', 'created_at']
 
-class ExaminationProgressNestedSerializer(serializers.ModelSerializer):
+
+    def create(self, validated_data):
+        items_data = validated_data.pop("items")
+        prescription = Prescription.objects.create(**validated_data)
+        for item_data in items_data:
+            PrescriptionItem.objects.create(prescription=prescription, **item_data)
+        return prescription
+
+
+    def update(self, instance, validated_data):
+        from medical_records.models import PrescriptionHistory, PrescriptionItem
+    
+    # --- STEP 1: CAPTURE THE OLD DATA ---
+    # We take the current notes and items BEFORE they change
+        old_notes = instance.notes
+        old_items_list = list(instance.items.values('medicine', 'dosage', 'frequency', 'notes'))
+
+    # Create the history record
+        PrescriptionHistory.objects.create(
+        prescription=instance,
+        notes=old_notes,           # Save the old notes here
+        previous_data=old_items_list # Save the old medicines list here
+    )
+
+    # --- STEP 2: UPDATE WITH NEW DATA ---
+        new_items_data = validated_data.pop('items', None)
+    
+    # Update the main Prescription fields (including the NEW notes)
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        instance.save()
+
+    # Update the Medicines (items)
+        if new_items_data is not None:
+            instance.items.all().delete()
+            for item_data in new_items_data:
+                PrescriptionItem.objects.create(prescription=instance, **item_data)
+
+        return instance
+
+class ExaminationNestedSerializer(serializers.ModelSerializer):
     class Meta:
-        model = ExaminationProgress
-        fields = ["id", "session_number", "description", "before_images", "after_images", "created_at"]
+        model = Examination
+        fields = [
+            "id",
+            "notes",
+            "diagnosis",
+            "treatment_plan",
+            "created_at",
+            "updated_at",
+        ]
 
-class ExaminationRecordNestedSerializer(serializers.ModelSerializer):
-    progress_entries = ExaminationProgressNestedSerializer(many=True, read_only=True)
-    doctor_name = serializers.CharField(source="doctor.full_display_name", read_only=True)
-
-    class Meta:
-        model = ExaminationRecord
-        fields = ["id", "doctor_name", "notes", "diagnosis", "treatment_plan", "created_at", "updated_at", "progress_entries"]
 
 class ClinicPatientMedicalRecordSerializer(serializers.ModelSerializer):
-    # Nested medical info
-    prescriptions = serializers.SerializerMethodField()
     examinations = serializers.SerializerMethodField()
-    xRays = serializers.SerializerMethodField()  # Placeholder
-    treatmentPlans = serializers.SerializerMethodField()  # Placeholder
+    prescriptions = serializers.SerializerMethodField()
     last_visit = serializers.SerializerMethodField()
 
     class Meta:
@@ -342,53 +375,20 @@ class ClinicPatientMedicalRecordSerializer(serializers.ModelSerializer):
             "age",
             "gender",
             "phone",
-            "email",
-            "address",
-            "emergency_contact",
-            "blood_type",
-            "allergies",
             "medical_history",
             "examinations",
-            "xRays",
-            "treatmentPlans",
             "prescriptions",
             "last_visit",
         ]
 
-    # ---------------- Prescriptions ----------------
+    def get_examinations(self, obj):
+        exams = Examination.objects.filter(patient=obj).order_by("-created_at")
+        return ExaminationNestedSerializer(exams, many=True).data
+
     def get_prescriptions(self, obj):
-        prescriptions = Prescription.objects.filter(patient=obj).prefetch_related("items")
+        prescriptions = Prescription.objects.filter(patient=obj).order_by("-created_at")
         return PrescriptionNestedSerializer(prescriptions, many=True).data
 
-    # ---------------- Examinations ----------------
-    def get_examinations(self, obj):
-        exams = ExaminationRecord.objects.filter(patient=obj).prefetch_related("progress_entries")
-        return ExaminationRecordNestedSerializer(exams, many=True).data
-
-    # ---------------- X-Rays placeholder ----------------
-    def get_xRays(self, obj):
-        return []
-
-    # ---------------- Treatment Plans placeholder ----------------
-    def get_treatmentPlans(self, obj):
-        return []
-
-    # ---------------- Last visit ----------------
     def get_last_visit(self, obj):
         last_appointment = obj.appointments.order_by("-date").first()
-        if last_appointment:
-            return last_appointment.date
-        return None
-
-    # ---------------- Deserialize medical_history ----------------
-    def to_representation(self, instance):
-        ret = super().to_representation(instance)
-        import json
-        try:
-            medical_history = json.loads(ret.get("medical_history") or "{}")
-        except json.JSONDecodeError:
-            medical_history = {}
-
-        ret["medicalHistoryText"] = ", ".join(f"{k}: {v}" for k, v in medical_history.items()) if medical_history else "No medical history provided"
-        ret["dentalHistory"] = medical_history.get("dental", "No dental history provided")
-        return ret
+        return last_appointment.date if last_appointment else None

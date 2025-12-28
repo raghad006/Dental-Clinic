@@ -1,4 +1,36 @@
 import React, { useState } from 'react';
+import axios from "axios"
+import { User } from 'lucide-react';
+
+const token = "YOUR_JWT_TOKEN_HERE";
+
+// Save a new examination
+const saveExamination = async (examData) => {
+  try {
+    const res = await axios.post(
+      'http://localhost:8000/api/examinations/?patient=${patient.id}',
+      examData,
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
+    return res.data;
+  } catch (err) {
+    console.error(err.response.data);
+  }
+};
+
+// Bulk save teeth
+const saveTeeth = async (examId, teethData) => {
+  try {
+    const res = await axios.post(
+      "http://localhost:8000/api/tooth-examinations/bulk/",
+      { examination: examId, teeth: teethData },
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
+    return res.data;
+  } catch (err) {
+    console.error(err.response.data);
+  }
+};
 
 const PATHS = {
   molar: "M505 939 c-76 -19 -84 -19 -161 -4 -65 12 -87 13 -108 4 -14 -7 -26 -15 -26 -18 0 -3 -11 -19 -25 -35 -54 -63 -57 -149 -10 -332 16 -59 26 -128 26 -169 1 -134 37 -252 92 -303 55 -52 84 -10 94 133 7 106 17 107 27 4 8 -69 35 -129 61 -129 29 0 47 47 54 142 6 93 6 93 18 -31 14 -146 26 -168 70 -135 28 22 46 53 22 39 -8 -5 -11 -4 -6 1 5 5 14 9 20 9 7 0 23 27 36 60 20 50 26 85 32 210 5 112 12 165 28 209 15 42 21 83 21 145 0 117 -15 146 -100 189 -35 17 -69 32 -75 31 -5 0 -46 -9 -90 -20z m132 -7 c7 -4 -30 -16 -85 -26 -74 -14 -105 -16 -132 -8 -35 10 -35 10 0 11 19 1 58 8 85 15 57 16 114 19 132 8z m-318 -6 c-2 -2 -26 -6 -54 -10 -34 -4 -45 -3 -35 4 14 9 99 15 89 6z m54 -13 c-7 -2 -21 -2 -30 0 -10 3 -4 5 12 5 17 0 24 -2 18 -5z m352 -37 c36 -45 38 -197 6 -294 -11 -32 -22 -74 -26 -94 -5 -26 -11 -35 -21 -31 -11 4 -14 -14 -14 -100 0 -58 -4 -117 -10 -132 -6 -15 -6 -24 -1 -20 30 18 16 -46 -15 -70 -7 -5 -14 -17 -16 -25 -4 -18 -23 -40 -36 -40 -12 0 -20 29 -27 105 -11 111 -28 210 -42 237 -16 34 -44 50 -64 37 -20 -13 -31 -11 -23 4 4 6 4 9 0 5 -4 -3 -8 -10 -8 -15 0 -4 -9 -25 -20 -46 -16 -32 -34 -128 -43 -227 -3 -35 -25 -100 -34 -100 -14 0 -48 45 -68 90 -28 62 -36 87 -25 75 6 -5 12 -19 15 -30 3 -11 4 0 2 25 -4 63 12 158 35 203 20 37 20 37 -8 37 -73 1 -86 22 -113 192 -16 108 -9 173 25 206 24 24 33 27 99 26 39 0 106 -4 147 -8 54 -5 90 -3 130 8 76 20 130 14 155 -18z m-457 -428 c10 15 11 15 5 -3 -3 -11 -10 -25 -15 -31 -4 -6 -6 -19 -2 -28 4 -9 1 -16 -6 -16 -7 0 -10 -7 -6 -17 4 -9 3 -37 -1 -62 -7 -44 -7 -45 -14 -16 -4 17 -7 68 -8 114 -1 82 -1 84 17 63 17 -19 19 -19 30 -4z m247 -157 c-8 -137 -12 -166 -30 -181 -23 -19 -43 27 -62 144 -15 103 -15 110 2 142 21 39 53 48 78 21 15 -17 17 -33 12 -126z m185 84 c0 -25 -4 -45 -10 -45 -11 0 -14 73 -3 83 11 12 13 8 13 -38z m-5 -111 c-3 -46 -10 -62 -21 -51 -4 4 -1 13 5 21 7 8 10 20 6 26 -6 9 2 50 10 50 2 0 2 -20 0 -46z",
@@ -718,7 +750,7 @@ const RemovalNotes = ({ notes, onNotesChange, onSkip }) => {
   );
 };
 
-const DentalChart = () => {
+const DentalChart = ( patient, patientId) => {
   const [activeTooth, setActiveTooth] = useState(11);
   const [activeTab, setActiveTab] = useState('measurements');
   const [activeProcedure, setActiveProcedure] = useState(null);
@@ -729,6 +761,9 @@ const DentalChart = () => {
   const [clinicalNote, setClinicalNote] = useState('');
   const [removalNotes, setRemovalNotes] = useState('');
   const [skipRemovalNotes, setSkipRemovalNotes] = useState(false);
+  const [teethData, setTeethData] = useState({});
+  const [examinationId, setExaminationId] = useState(null);
+
   const [soapData, setSoapData] = useState({
     subjective: '',
     objective: '',
@@ -764,6 +799,28 @@ const DentalChart = () => {
     upper: [],
     lower: []
   });
+  const handleSaveExamination = async () => {
+  if (!patientId) return alert("No patient selected!");
+
+  try {
+    const examRes = await saveExamination({
+      patient_id: patientId,
+      doctor_id: User.id,
+      created_at: new Date().toISOString(),
+    });
+
+    setExaminationId(examRes.id);
+
+    if (Object.keys(teethData).length > 0) {
+      await saveTeeth(examRes.id, teethData);
+    }
+
+    alert("Examination and teeth saved successfully!");
+  } catch (err) {
+    console.error(err);
+    alert("Failed to save examination");
+  }
+};
 
   const showNotification = (message, type = 'info') => {
     const colors = {
@@ -772,7 +829,6 @@ const DentalChart = () => {
       warning: 'bg-yellow-50 border-yellow-200 text-yellow-800',
       error: 'bg-red-50 border-red-200 text-red-800'
     };
-    
     const notification = document.createElement('div');
     notification.className = `fixed top-4 right-4 p-4 rounded-lg border ${colors[type]} shadow-lg z-50 transition-opacity duration-300`;
     notification.innerHTML = `
@@ -1158,6 +1214,13 @@ const DentalChart = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-white p-4">
       <div className="max-w-7xl mx-auto">
+        <button
+  onClick={handleSaveExamination}
+  className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
+>
+  Save Examination
+</button>
+
         <div className="flex gap-4">
           <div className="flex-1">
             <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4">

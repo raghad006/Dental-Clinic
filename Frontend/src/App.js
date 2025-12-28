@@ -76,6 +76,7 @@ export default function App() {
               <Route path="/patients" element={<AllPatients />} />
               <Route path="/patients/add" element={<AddPatientPage />} />
               <Route path="/patients/:id" element={<Patient />} />
+              <Route path="/patients/:patientId/chart"element={<DentalChart />}/>
 
               {/* Medical records — ONLY doctor */}
               <Route

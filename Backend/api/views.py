@@ -7,7 +7,7 @@ from rest_framework.permissions import IsAuthenticated, AllowAny
 from django_filters.rest_framework import DjangoFilterBackend
 from datetime import datetime as dt, datetime, timedelta, time as dt_time
 from django.utils import timezone
-
+from medical_records.models import Prescription ,PrescriptionItem 
 from .serializers import (
     ClinicUserRegisterSerializer,
     PatientRegisterSerializer,
@@ -21,7 +21,7 @@ from .serializers import (
 )
 
 from .models import ClinicUser, Patient, Appointment, ClinicPatient
-
+from rest_framework.views import APIView
 # ================= STAFF & PATIENT VIEWS =================
 
 class ClinicUserRegisterView(generics.CreateAPIView):
@@ -311,3 +311,42 @@ class ClinicPatientMedicalRecordView(generics.RetrieveAPIView):
     serializer_class = ClinicPatientMedicalRecordSerializer
     lookup_field = "patient_id"
     permission_classes = [IsAuthenticated]
+# Add these imports at the top of api/views.py
+
+class PrescriptionCreateView(APIView):
+    def post(self, request, patient_id):
+        try:
+            patient = ClinicPatient.objects.get(patient_id=patient_id)
+        except ClinicPatient.DoesNotExist:
+            return Response({"error": "Patient not found"}, status=404)
+
+        # Get the latest appointment to link the prescription to
+        # Since your model requires an appointment
+        appointment = Appointment.objects.filter(patient=patient).order_by('-date', '-time').first()
+        
+        if not appointment:
+            return Response({"error": "Patient must have at least one appointment to create a prescription."}, status=400)
+
+        items_data = request.data.get('items', [])
+        
+        # Create the prescription
+        prescription = Prescription.objects.create(
+            patient=patient,
+            appointment=appointment,
+            # If request.user is a doctor, link them:
+            doctor=request.user if hasattr(request.user, 'role') and request.user.role == 'doctor' else None
+        )
+
+        # Create the items
+        for item in items_data:
+            PrescriptionItem.objects.create(
+                prescription=prescription,
+                medicine=item.get('medicine'),
+                dosage=item.get('dosage'),
+                frequency=item.get('frequency'),
+                notes=item.get('notes', '')
+            )
+
+        # Return the medical record format so the frontend updates immediately
+        from .serializers import PrescriptionNestedSerializer
+        return Response(PrescriptionNestedSerializer(prescription).data, status=status.HTTP_201_CREATED)

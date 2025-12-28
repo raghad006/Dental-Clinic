@@ -11,10 +11,11 @@ from .views import (
     DoctorListView,
     AppointmentViewSet,
 ClinicPatientMedicalRecordView,
+PrescriptionCreateView ,
     get_available_time_slots,   
     check_time_slot_availability,     
     get_doctor_availability,    
-)
+)   
 
 # ---------------- Router for appointments ----------------
 router = DefaultRouter()
@@ -35,6 +36,7 @@ urlpatterns = [
     path("clinic-patient/<str:patient_id>/",ClinicPatientRetrieveUpdateView.as_view(),name="clinic-patient-detail",
     ),
     path('clinic-patient/<str:patient_id>/medical-record/', ClinicPatientMedicalRecordView.as_view(), name='clinic-patient-medical-record'),
+    path('clinic-patient/<str:patient_id>/prescriptions/', PrescriptionCreateView.as_view(), name='prescription-create'),
     # ---------------- Doctors ----------------
 
     path("staff/", DoctorListView.as_view(), name="doctor-list"),
